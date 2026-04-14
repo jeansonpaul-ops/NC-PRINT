@@ -6,6 +6,7 @@
 <title>NC PRINT — LuxVisual</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 :root{
   --bg:#f0f4f8;
@@ -318,6 +319,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="nav-tab" data-v="stats" onclick="switchView('stats')">Statistiques</div>
     <div class="nav-tab" data-v="recap" onclick="switchView('recap')">Récap mensuel</div>
     <div class="nav-tab" id="tabProfil" data-v="profil" onclick="switchView('profil')" style="display:none">Mon profil</div>
+    <div class="nav-tab" id="tabRapport" data-v="rapport" onclick="switchView('rapport')" style="display:none">📧 Rapport email</div>
   </div>
   <div class="content">
 
@@ -396,10 +398,56 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
     </div>
 
-  </div>
-</div>
+    <!-- VUE RAPPORT EMAIL -->
+    <div class="view" id="view-rapport">
+      <div class="pin-section" id="emailjs-setup">
+        <h3>⚙️ Configuration EmailJS</h3>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+          EmailJS permet d'envoyer des emails directement depuis le navigateur, gratuitement (200 mails/mois).<br>
+          <strong>Une seule fois à configurer.</strong>
+        </p>
+        <div style="background:var(--accent-light);border:1px solid rgba(26,110,245,.2);border-radius:var(--radius-sm);padding:14px;margin-bottom:18px;font-size:12px;line-height:1.8;color:var(--text2)">
+          <strong style="color:var(--accent)">Comment obtenir ces clés (gratuit) :</strong><br>
+          1. Créer un compte sur <a href="https://www.emailjs.com" target="_blank" style="color:var(--accent)">emailjs.com</a><br>
+          2. Ajouter un service email (Gmail, Outlook…) → copier le <strong>Service ID</strong><br>
+          3. Créer un template avec les variables <code style="background:#dde3ee;padding:1px 5px;border-radius:3px">{{rapport_html}}</code> et <code style="background:#dde3ee;padding:1px 5px;border-radius:3px">{{date}}</code> → copier le <strong>Template ID</strong><br>
+          4. Dans Account → API Keys → copier la <strong>Public Key</strong>
+        </div>
+        <div class="pin-fields">
+          <div class="pin-field"><label>Public Key</label><input type="text" id="ejs-pubkey" placeholder="ex: aBcDeFgHiJkLmNoPq"></div>
+          <div class="pin-field"><label>Service ID</label><input type="text" id="ejs-service" placeholder="ex: service_xxxxxxx"></div>
+          <div class="pin-field"><label>Template ID</label><input type="text" id="ejs-template" placeholder="ex: template_xxxxxxx"></div>
+          <div class="pin-field"><label>Destinataire</label><input type="email" id="ejs-to" value="pao@luxvisual.lu"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveEmailConfig()" style="margin-bottom:8px">Sauvegarder la configuration</button>
+      </div>
 
-<!-- MODAL DÉTAIL -->
+      <div class="pin-section" style="margin-top:16px">
+        <h3>📧 Envoyer le rapport hebdomadaire</h3>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+          Le rapport contient : les NC de la semaine en cours, les statistiques du mois, et le récapitulatif mensuel.<br>
+          Il sera envoyé à <strong id="rapport-dest">pao@luxvisual.lu</strong>.
+        </p>
+        <div id="rapport-preview" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;font-size:12px;color:var(--text2)">
+          Cliquez sur "Aperçu" pour prévisualiser le rapport avant envoi.
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="previewRapport()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Aperçu
+          </button>
+          <button class="btn btn-primary" onclick="sendRapport()" id="btn-send-rapport">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Envoyer le rapport
+          </button>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace" id="rapport-last-sent"></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
 <div class="modal-bg" id="modal" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -430,27 +478,18 @@ const GRAPHISTES = ['Paul','Félix','Manon','Christopher','Invité (Graphiste)']
 
 // Types NC production print
 const NC_TYPES = [
-  {label:'Fond perdu absent',            icon:'🖼️'},
-  {label:'Fond perdu insuffisant',        icon:'📏'},
-  {label:'Fond perdu incorrect (côté)',   icon:'↔️'},
-  {label:'Traits de coupe absents',       icon:'✂️'},
-  {label:'Traits de coupe mal positionnés',icon:'📐'},
-  {label:'Traits de coupe non standard',  icon:'🎨'},
-  {label:'Contour de découpe manquant',   icon:'🔲'},
-  {label:'Résolution insuffisante',       icon:'🔳'},
-  {label:'Image pixélisée',              icon:'🔍'},
-  {label:'Fichier en RVB',               icon:'🌈'},
-  {label:'Blanc non défini',             icon:'⬜'},
-  {label:'Couleur Pantone non validée',   icon:'🎯'},
-  {label:'Format de page incorrect',      icon:'📄'},
-  {label:'Dimensions incorrectes',        icon:'📐'},
-  {label:'Marges de sécurité non resp.',  icon:'⚠️'},
-  {label:'Polices non vectorisées',       icon:'🔤'},
-  {label:'Texte en RVB',                 icon:'🖊️'},
-  {label:'Fichier corrompu',             icon:'💾'},
-  {label:'Mauvais format (JPG/PDF)',      icon:'📁'},
-  {label:'Transparences non aplaties',    icon:'🔆'},
-  {label:'Autre',                        icon:'✏️'},
+  {label:'Fond perdu insuffisant',              icon:'✏️'},
+  {label:'Traits de coupe absents / mal positionnés', icon:'✂️'},
+  {label:'Contour de découpe absent / non standard',  icon:'⬛'},
+  {label:'Image pixélisée',                     icon:'🔍'},
+  {label:'Fichier en RVB',                      icon:'🌈'},
+  {label:'Blanc non défini',                    icon:'⬜'},
+  {label:'Dimensions incorrectes',              icon:'📐'},
+  {label:'Fichier corrompu',                    icon:'💾'},
+  {label:'Mauvais format (JPG/PDF)',             icon:'📁'},
+  {label:'Transparences non aplaties',           icon:'⚙️'},
+  {label:'Amalgamme / Recto Verso mal préparé',  icon:'🔄'},
+  {label:'Autre',                               icon:'✒️'},
 ];
 
 const MONTHS_FR=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -529,12 +568,15 @@ function showApp(){
   document.getElementById('userAvatar').textContent=currentUser.substring(0,2).toUpperCase();
   // Onglet profil visible pour tous (changement MDP)
   document.getElementById('tabProfil').style.display='block';
+  // Onglet rapport email
+  document.getElementById('tabRapport').style.display='block';
   ncData=getData();
   updateRef();
   updateStats();
   buildGraGrid();
   buildTypeGrid();
   populateFilters();
+  loadEmailConfigUI();
 }
 
 // ═══════════════════════════════════════════════
@@ -554,7 +596,7 @@ function pickGraphiste(el,i){
 
 function buildTypeGrid(){
   document.getElementById('typeGrid').innerHTML=NC_TYPES.map((t,i)=>
-    `<button class="nc-type-btn" data-i="${i%13}" onclick="toggleType(this,${i})">
+    `<button class="nc-type-btn" data-i="${i%12}" onclick="toggleType(this,${i})">
       <span class="check-mark">✓</span>
       <span class="nc-icon">${t.icon}</span>${t.label}
     </button>`
@@ -939,6 +981,227 @@ function toast(msg,err){
   t.style.color='#fff';
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ═══════════════════════════════════════════════
+// RAPPORT EMAIL (EmailJS)
+// ═══════════════════════════════════════════════
+
+const EMAILJS_CONFIG_KEY = 'ncprint_emailjs';
+
+function getEmailConfig(){
+  try{ return JSON.parse(localStorage.getItem(EMAILJS_CONFIG_KEY)||'{}'); }
+  catch{ return {}; }
+}
+
+function saveEmailConfig(){
+  const cfg = {
+    publicKey:  document.getElementById('ejs-pubkey').value.trim(),
+    serviceId:  document.getElementById('ejs-service').value.trim(),
+    templateId: document.getElementById('ejs-template').value.trim(),
+    to:         document.getElementById('ejs-to').value.trim() || 'pao@luxvisual.lu',
+  };
+  if(!cfg.publicKey||!cfg.serviceId||!cfg.templateId){
+    toast('Remplir tous les champs EmailJS',true); return;
+  }
+  localStorage.setItem(EMAILJS_CONFIG_KEY, JSON.stringify(cfg));
+  document.getElementById('rapport-dest').textContent = cfg.to;
+  toast('Configuration EmailJS sauvegardée !');
+}
+
+function loadEmailConfigUI(){
+  const cfg = getEmailConfig();
+  if(cfg.publicKey)  document.getElementById('ejs-pubkey').value  = cfg.publicKey;
+  if(cfg.serviceId)  document.getElementById('ejs-service').value  = cfg.serviceId;
+  if(cfg.templateId) document.getElementById('ejs-template').value = cfg.templateId;
+  if(cfg.to)         { document.getElementById('ejs-to').value = cfg.to; document.getElementById('rapport-dest').textContent = cfg.to; }
+  // Dernier envoi
+  const last = localStorage.getItem('ncprint_last_rapport');
+  if(last) document.getElementById('rapport-last-sent').textContent = 'Dernier envoi : ' + last;
+}
+
+function fmtMin(m){ return m>=60?`${Math.floor(m/60)}h${m%60?String(m%60).padStart(2,'0'):'00'}`:`${m} min`; }
+
+function buildRapportHTML(){
+  const now = new Date();
+  // Semaine courante (lundi → dimanche)
+  const day = now.getDay()||7;
+  const monday = new Date(now); monday.setDate(now.getDate()-day+1); monday.setHours(0,0,0,0);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6); sunday.setHours(23,59,59,999);
+
+  const semaine = ncData.filter(n=>{ const d=new Date(n.date); return d>=monday&&d<=sunday; });
+  const mois    = ncData.filter(n=>{ const d=new Date(n.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
+
+  const totalSem = semaine.length;
+  const totalMois = mois.length;
+  const tempsSem  = semaine.reduce((s,n)=>s+(n.timeLost||0),0);
+  const tempsMois = mois.reduce((s,n)=>s+(n.timeLost||0),0);
+
+  // Top NC types cette semaine
+  const typeMap={};
+  semaine.forEach(n=>(n.types||[n.type]).forEach(t=>{ typeMap[t]=(typeMap[t]||0)+1; }));
+  const topTypes = Object.entries(typeMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Par graphiste cette semaine
+  const graMap={};
+  semaine.forEach(n=>{ graMap[n.graphiste]=(graMap[n.graphiste]||0)+1; });
+  const topGra = Object.entries(graMap).sort((a,b)=>b[1]-a[1]);
+
+  const dateStr = now.toLocaleDateString('fr-LU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const semStr  = `${monday.toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit'})} – ${sunday.toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
+
+  const rowStyle = 'padding:8px 12px;border-bottom:1px solid #dde3ee;font-size:13px;';
+  const thStyle  = 'background:#e8eef6;padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#5a6a8a;border-bottom:1px solid #dde3ee;';
+
+  const ncRows = semaine.slice(0,20).map(n=>{
+    const d = new Date(n.date).toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric'});
+    return `<tr>
+      <td style="${rowStyle}font-family:monospace;font-weight:700;color:#1a6ef5">${n.ref}</td>
+      <td style="${rowStyle}">${d}</td>
+      <td style="${rowStyle}">${n.job||'—'}</td>
+      <td style="${rowStyle}">${n.graphiste||'—'}</td>
+      <td style="${rowStyle}">${n.type}</td>
+      <td style="${rowStyle}text-align:right">${n.timeLost||0} min</td>
+    </tr>`;
+  }).join('');
+
+  return `
+<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:680px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.1)">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#1a6ef5,#0891b2);padding:28px 32px;color:#fff">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;opacity:.75;margin-bottom:6px">LuxVisual — Pôle Production Print</div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:4px">Rapport NC-PRINT</div>
+    <div style="font-size:13px;opacity:.8">Semaine du ${semStr} · Généré le ${dateStr}</div>
+  </div>
+
+  <!-- KPIs -->
+  <div style="display:flex;gap:0;border-bottom:2px solid #e8eef6">
+    <div style="flex:1;padding:20px 24px;border-right:1px solid #e8eef6;text-align:center">
+      <div style="font-size:32px;font-weight:800;color:#1a6ef5">${totalSem}</div>
+      <div style="font-size:11px;font-weight:600;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">NC cette semaine</div>
+    </div>
+    <div style="flex:1;padding:20px 24px;border-right:1px solid #e8eef6;text-align:center">
+      <div style="font-size:32px;font-weight:800;color:#0891b2">${fmtMin(tempsSem)}</div>
+      <div style="font-size:11px;font-weight:600;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Temps perdu (sem.)</div>
+    </div>
+    <div style="flex:1;padding:20px 24px;border-right:1px solid #e8eef6;text-align:center">
+      <div style="font-size:32px;font-weight:800;color:#7c3aed">${totalMois}</div>
+      <div style="font-size:11px;font-weight:600;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">NC ce mois</div>
+    </div>
+    <div style="flex:1;padding:20px 24px;text-align:center">
+      <div style="font-size:32px;font-weight:800;color:#059669">${fmtMin(tempsMois)}</div>
+      <div style="font-size:11px;font-weight:600;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Temps perdu (mois)</div>
+    </div>
+  </div>
+
+  <div style="padding:24px 32px">
+
+    <!-- TOP TYPES -->
+    ${topTypes.length ? `
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e8eef6">Top types de NC — semaine</div>
+      ${topTypes.map(([l,c],i)=>{
+        const colors=['#1a6ef5','#059669','#7c3aed','#dc2626','#0891b2'];
+        const pct = totalSem ? Math.round(c/totalSem*100) : 0;
+        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:180px;font-size:12px;font-weight:500;color:#1a2236;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>
+          <div style="flex:1;height:20px;background:#e8eef6;border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${Math.max(pct,3)}%;background:${colors[i%5]};border-radius:4px;display:flex;align-items:center;padding-left:6px">
+              ${pct>=15?`<span style="font-size:10px;font-weight:700;color:#fff">${pct}%</span>`:''}
+            </div>
+          </div>
+          <div style="width:24px;font-size:12px;font-weight:700;color:#5a6a8a;text-align:right">${c}</div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <!-- PAR GRAPHISTE -->
+    ${topGra.length ? `
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e8eef6">NC par graphiste — semaine</div>
+      ${topGra.map(([g,c])=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f4f8;font-size:13px">
+          <span style="color:#1a2236;font-weight:500">${g}</span>
+          <span style="background:#e8f0ff;color:#1a6ef5;font-weight:700;padding:2px 10px;border-radius:10px;font-size:12px">${c} NC</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- LISTE NC SEMAINE -->
+    ${ncRows ? `
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e8eef6">
+        Détail des NC — semaine${semaine.length>20?' (20 premières sur '+semaine.length+')':''}
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="${thStyle}">Réf.</th>
+            <th style="${thStyle}">Date</th>
+            <th style="${thStyle}">Job</th>
+            <th style="${thStyle}">Graphiste</th>
+            <th style="${thStyle}">Type NC</th>
+            <th style="${thStyle}text-align:right">Temps</th>
+          </tr></thead>
+          <tbody>${ncRows}</tbody>
+        </table>
+      </div>
+    </div>` : `<div style="text-align:center;padding:30px;color:#8f9dbc;font-size:13px">Aucune NC enregistrée cette semaine.</div>`}
+
+  </div>
+
+  <!-- FOOTER -->
+  <div style="background:#f4f7fb;padding:16px 32px;border-top:1px solid #e8eef6;font-size:11px;color:#8f9dbc;text-align:center">
+    NC-PRINT — LuxVisual · Rapport automatique · ${dateStr}
+  </div>
+</div>`;
+}
+
+function previewRapport(){
+  const html = buildRapportHTML();
+  const prev = document.getElementById('rapport-preview');
+  prev.innerHTML = '<div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-family:monospace">APERÇU DU RAPPORT ↓</div>' + html;
+  toast('Aperçu généré');
+}
+
+function sendRapport(){
+  const cfg = getEmailConfig();
+  if(!cfg.publicKey||!cfg.serviceId||!cfg.templateId){
+    toast('Configurer EmailJS d\'abord (section ci-dessus)',true); return;
+  }
+  const btn = document.getElementById('btn-send-rapport');
+  btn.textContent = 'Envoi en cours…';
+  btn.disabled = true;
+
+  emailjs.init(cfg.publicKey);
+
+  const now = new Date();
+  const day = now.getDay()||7;
+  const monday = new Date(now); monday.setDate(now.getDate()-day+1);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  const semStr = `${monday.toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit'})} – ${sunday.toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
+
+  const rapportHtml = buildRapportHTML();
+
+  emailjs.send(cfg.serviceId, cfg.templateId, {
+    to_email:     cfg.to,
+    subject:      `Rapport NC-PRINT — Semaine du ${semStr}`,
+    rapport_html: rapportHtml,
+    date:         now.toLocaleDateString('fr-LU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
+    semaine:      semStr,
+  }).then(()=>{
+    const ts = now.toLocaleString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    localStorage.setItem('ncprint_last_rapport', ts);
+    document.getElementById('rapport-last-sent').textContent = 'Dernier envoi : ' + ts;
+    toast('Rapport envoyé à ' + cfg.to + ' !');
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Envoyer le rapport';
+    btn.disabled = false;
+  }).catch(err=>{
+    console.error(err);
+    toast('Erreur d\'envoi. Vérifier la config EmailJS.',true);
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Envoyer le rapport';
+    btn.disabled = false;
+  });
 }
 
 // ═══════════════════════════════════════════════
