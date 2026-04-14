@@ -497,18 +497,18 @@ const NC_TYPES = [
 const MONTHS_FR=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // ═══════════════════════════════════════════════
-// FIREBASE — même projet que NC-PAO
+// FIREBASE — projet dédié NC-PRINT
 // ═══════════════════════════════════════════════
 firebase.initializeApp({
-  apiKey:            "AIzaSyASDTvELKcDDMEM7aV3rtlPYn-4jOfIXcQ",
-  authDomain:        "luxvisual-nc.firebaseapp.com",
-  projectId:         "luxvisual-nc",
-  storageBucket:     "luxvisual-nc.firebasestorage.app",
-  messagingSenderId: "506331560097",
-  appId:             "1:506331560097:web:72bcca453bdc5e20ef18e0"
+  apiKey:            "AIzaSyBeZMygFokiIinD8OAsK099BOKBCp9cjr8",
+  authDomain:        "luxvisual-nc-print.firebaseapp.com",
+  projectId:         "luxvisual-nc-print",
+  storageBucket:     "luxvisual-nc-print.firebasestorage.app",
+  messagingSenderId: "209482213802",
+  appId:             "1:209482213802:web:3f42947c72629cf135e3d3"
 });
 const db = firebase.firestore();
-const ncCollection = db.collection('nc_print'); // collection séparée de nc_pao
+const ncCollection = db.collection('nc_print');
 // Mots de passe stockés localement (données propres à chaque poste)
 function getPasswords(){
   const def={};
@@ -1318,9 +1318,18 @@ function sendRapport(){
 // ═══════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
   initLogin();
+
+  // Détection fichier ouvert en local (file://) — Firebase ne fonctionne pas en local
+  if(window.location.protocol === 'file:') {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#dc2626;color:#fff;padding:12px 20px;font-family:Arial,sans-serif;font-size:13px;font-weight:600;text-align:center;line-height:1.5';
+    warn.innerHTML = '⚠️ Fichier ouvert en local (file://) — La base de données partagée ne fonctionne pas ainsi.<br>Héberge ce fichier sur GitHub Pages ou un serveur web pour activer la synchronisation entre postes.';
+    document.body.prepend(warn);
+  }
+
   if(currentUser) showApp();
 
-  // Ecoute temps reel Firestore - mise a jour instantanee sur tous les postes
+  // Écoute temps réel Firestore — mise à jour instantanée sur tous les postes
   ncCollection.orderBy('date','desc').onSnapshot(snap=>{
     ncData = snap.docs.map(d=>({...d.data(), _docId:d.id}));
     updateStats();
@@ -1330,9 +1339,24 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(av && av.id==='view-list')  renderList();
     if(av && av.id==='view-stats') renderStats();
     if(av && av.id==='view-recap') renderRecap();
+    // Masquer la bannière d'erreur si Firebase est connecté
+    document.getElementById('firebase-error-banner')&&document.getElementById('firebase-error-banner').remove();
   }, e=>{
-    console.error(e);
-    toast('Erreur connexion base de donnees',true);
+    console.error('Firebase error:', e.code, e.message);
+    // Afficher une bannière d'erreur détaillée
+    let msg = 'Erreur connexion base de données.';
+    if(e.code==='permission-denied') msg = '🔒 Accès refusé par Firestore. Vérifier les règles de sécurité dans la console Firebase.';
+    else if(e.code==='unavailable')  msg = '📡 Firestore indisponible. Vérifier la connexion internet.';
+    else if(e.message&&e.message.includes('file:')) msg = '📁 Fichier ouvert en local. Héberger sur GitHub Pages pour la base partagée.';
+    else msg = `Erreur Firebase : ${e.code||e.message}`;
+    let banner = document.getElementById('firebase-error-banner');
+    if(!banner){
+      banner = document.createElement('div');
+      banner.id = 'firebase-error-banner';
+      banner.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:9999;background:#dc2626;color:#fff;padding:12px 20px;border-radius:10px;font-family:Arial,sans-serif;font-size:13px;font-weight:600;text-align:center;max-width:90%;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+      document.body.appendChild(banner);
+    }
+    banner.textContent = msg;
   });
 });
 </script>
