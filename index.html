@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>NC PRINT — LuxVisual</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
@@ -426,7 +428,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <h3>📧 Envoyer le rapport hebdomadaire</h3>
         <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
           Le rapport contient : les NC de la semaine en cours, les statistiques du mois, et le récapitulatif mensuel.<br>
-          Il sera envoyé à <strong id="rapport-dest">pao@luxvisual.lu</strong>.
+          Il sera envoyé à <strong id="rapport-dest"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="6111000e210d141917081214000d4f0d14">[email&#160;protected]</a></strong>.
         </p>
         <div id="rapport-preview" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;font-size:12px;color:var(--text2)">
           Cliquez sur "Aperçu" pour prévisualiser le rapport avant envoi.
@@ -459,7 +461,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
 <div class="toast" id="toast"></div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ═══════════════════════════════════════════════
 // CONFIGURATION
 // ═══════════════════════════════════════════════
@@ -495,10 +497,19 @@ const NC_TYPES = [
 const MONTHS_FR=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // ═══════════════════════════════════════════════
-// STOCKAGE localStorage
+// FIREBASE — projet dédié NC-PRINT
 // ═══════════════════════════════════════════════
-function getData(){try{return JSON.parse(localStorage.getItem('ncprint_data')||'[]')}catch{return[]}}
-function saveData(d){localStorage.setItem('ncprint_data',JSON.stringify(d))}
+firebase.initializeApp({
+  apiKey:            "AIzaSyBeZMygFokiIinD8OAsK099BOKBCp9cjr8",
+  authDomain:        "luxvisual-nc-print.firebaseapp.com",
+  projectId:         "luxvisual-nc-print",
+  storageBucket:     "luxvisual-nc-print.firebasestorage.app",
+  messagingSenderId: "209482213802",
+  appId:             "1:209482213802:web:3f42947c72629cf135e3d3"
+});
+const db = firebase.firestore();
+const ncCollection = db.collection('nc_print');
+// Mots de passe stockés localement (données propres à chaque poste)
 function getPasswords(){
   const def={};
   OPERATORS.forEach(o=>def[o.name]=o.pass);
@@ -566,11 +577,8 @@ function showApp(){
   document.getElementById('app').classList.add('visible');
   document.getElementById('userName').textContent=currentUser;
   document.getElementById('userAvatar').textContent=currentUser.substring(0,2).toUpperCase();
-  // Onglet profil visible pour tous (changement MDP)
   document.getElementById('tabProfil').style.display='block';
-  // Onglet rapport email
   document.getElementById('tabRapport').style.display='block';
-  ncData=getData();
   updateRef();
   updateStats();
   buildGraGrid();
@@ -678,13 +686,9 @@ function saveNC(){
     remark,
     operator:currentUser
   };
-  ncData.unshift(nc);
-  saveData(ncData);
-  resetForm();
-  updateRef();
-  updateStats();
-  populateFilters();
-  toast(`${nc.ref} enregistrée`);
+  ncCollection.add(nc)
+    .then(()=>{ resetForm(); updateRef(); toast(`${nc.ref} enregistrée`); })
+    .catch(e=>{ console.error(e); toast("Erreur d'enregistrement",true); });
 }
 
 function resetForm(){
@@ -805,27 +809,25 @@ function toggleEditType(el,label){
 }
 
 function saveEdit(id){
-  const idx=ncData.findIndex(x=>x.id===id);if(idx===-1)return;
+  const n=ncData.find(x=>x.id===id);if(!n||!n._docId)return;
   const job=document.getElementById('e-job').value.trim();
   const client=document.getElementById('e-client').value.trim();
   const gra=document.getElementById('e-gra').value;
   const time=parseInt(document.getElementById('e-time').value)||0;
   const remark=document.getElementById('e-remark').value.trim();
   if(editTypes.length===0||!gra){toast('Remplir graphiste et type(s)',true);return}
-  ncData[idx]={...ncData[idx],job,client,graphiste:gra,types:editTypes,type:editTypes.join(' + '),timeLost:time,remark};
-  saveData(ncData);
-  document.getElementById('modal').classList.remove('show');
-  updateStats();populateFilters();
-  toast('NC modifiée');
+  const updates={job,client,graphiste:gra,types:editTypes,type:editTypes.join(' + '),timeLost:time,remark};
+  ncCollection.doc(n._docId).update(updates)
+    .then(()=>{ document.getElementById('modal').classList.remove('show'); toast('NC modifiée'); })
+    .catch(e=>{ console.error(e); toast('Erreur modification',true); });
 }
 
 function deleteNC(id){
   if(!confirm('Supprimer cette NC ?'))return;
-  ncData=ncData.filter(x=>x.id!==id);
-  saveData(ncData);
-  document.getElementById('modal').classList.remove('show');
-  updateStats();populateFilters();
-  toast('NC supprimée');
+  const nc=ncData.find(x=>x.id===id);if(!nc||!nc._docId)return;
+  ncCollection.doc(nc._docId).delete()
+    .then(()=>{ document.getElementById('modal').classList.remove('show'); toast('NC supprimée'); })
+    .catch(e=>{ console.error(e); toast('Erreur suppression',true); });
 }
 
 // ═══════════════════════════════════════════════
@@ -1024,7 +1026,6 @@ function fmtMin(m){ return m>=60?`${Math.floor(m/60)}h${m%60?String(m%60).padSta
 
 function buildRapportHTML(){
   const now = new Date();
-  // Semaine courante (lundi → dimanche)
   const day = now.getDay()||7;
   const monday = new Date(now); monday.setDate(now.getDate()-day+1); monday.setHours(0,0,0,0);
   const sunday = new Date(monday); sunday.setDate(monday.getDate()+6); sunday.setHours(23,59,59,999);
@@ -1032,128 +1033,235 @@ function buildRapportHTML(){
   const semaine = ncData.filter(n=>{ const d=new Date(n.date); return d>=monday&&d<=sunday; });
   const mois    = ncData.filter(n=>{ const d=new Date(n.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
 
-  const totalSem = semaine.length;
+  const totalSem  = semaine.length;
   const totalMois = mois.length;
   const tempsSem  = semaine.reduce((s,n)=>s+(n.timeLost||0),0);
   const tempsMois = mois.reduce((s,n)=>s+(n.timeLost||0),0);
 
-  // Top NC types cette semaine
-  const typeMap={};
-  semaine.forEach(n=>(n.types||[n.type]).forEach(t=>{ typeMap[t]=(typeMap[t]||0)+1; }));
-  const topTypes = Object.entries(typeMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-
-  // Par graphiste cette semaine
-  const graMap={};
-  semaine.forEach(n=>{ graMap[n.graphiste]=(graMap[n.graphiste]||0)+1; });
-  const topGra = Object.entries(graMap).sort((a,b)=>b[1]-a[1]);
-
   const dateStr = now.toLocaleDateString('fr-LU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const semStr  = `${monday.toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit'})} – ${sunday.toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
 
-  const rowStyle = 'padding:8px 12px;border-bottom:1px solid #dde3ee;font-size:13px;';
-  const thStyle  = 'background:#e8eef6;padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#5a6a8a;border-bottom:1px solid #dde3ee;';
+  // ── Palette couleurs
+  const CLR = ['#1a6ef5','#059669','#7c3aed','#dc2626','#0891b2','#be185d','#ca8a04','#0d9488','#9333ea','#ea580c','#64748b','#b45309'];
 
-  const ncRows = semaine.slice(0,20).map(n=>{
+  // ── Fonction graphique barre HTML (compatible email, % toujours visibles)
+  function barChart(entries, total, title){
+    if(!entries.length) return '';
+    const maxVal = Math.max(...entries.map(([,v])=>v),1);
+    const rows = entries.map(([label,count],i)=>{
+      const pct     = total ? Math.round(count/total*100) : 0;
+      const barW    = Math.round(count/maxVal*100);
+      const color   = CLR[i%CLR.length];
+      const labelSh = label.length>28 ? label.substring(0,26)+'…' : label;
+      return `
+      <tr>
+        <td style="padding:5px 8px 5px 0;font-size:12px;font-weight:500;color:#1a2236;text-align:right;width:195px;white-space:nowrap;overflow:hidden">${labelSh}</td>
+        <td style="padding:5px 4px;width:100%">
+          <div style="background:#e8eef6;border-radius:4px;height:22px;position:relative;overflow:hidden">
+            <div style="position:absolute;left:0;top:0;height:100%;width:${Math.max(barW,2)}%;background:${color};border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;min-width:36px">
+              <span style="font-size:10px;font-weight:800;color:#fff;white-space:nowrap">${pct}%</span>
+            </div>
+          </div>
+        </td>
+        <td style="padding:5px 0 5px 6px;font-size:12px;font-weight:700;color:#5a6a8a;white-space:nowrap;width:38px;text-align:right">${count}</td>
+      </tr>`;
+    }).join('');
+    return `
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid #e8eef6">${title}</div>
+      <table style="width:100%;border-collapse:collapse">${rows}</table>
+    </div>`;
+  }
+
+  // ── Types semaine
+  const typeMapSem={};
+  semaine.forEach(n=>(n.types||[n.type]).forEach(t=>{ const k=t.startsWith('Autre:')?'Autre':t; typeMapSem[k]=(typeMapSem[k]||0)+1; }));
+  const typesSem = Object.entries(typeMapSem).sort((a,b)=>b[1]-a[1]);
+  const totalTypeSem = typesSem.reduce((s,[,v])=>s+v,0);
+
+  // ── Graphistes semaine
+  const graMapSem={};
+  semaine.forEach(n=>{ if(n.graphiste) graMapSem[n.graphiste]=(graMapSem[n.graphiste]||0)+1; });
+  const graSem = Object.entries(graMapSem).sort((a,b)=>b[1]-a[1]);
+
+  // ── Types mois
+  const typeMapMois={};
+  mois.forEach(n=>(n.types||[n.type]).forEach(t=>{ const k=t.startsWith('Autre:')?'Autre':t; typeMapMois[k]=(typeMapMois[k]||0)+1; }));
+  const typesMois = Object.entries(typeMapMois).sort((a,b)=>b[1]-a[1]);
+  const totalTypeMois = typesMois.reduce((s,[,v])=>s+v,0);
+
+  // ── Graphistes mois
+  const graMapMois={};
+  mois.forEach(n=>{ if(n.graphiste) graMapMois[n.graphiste]=(graMapMois[n.graphiste]||0)+1; });
+  const graMois = Object.entries(graMapMois).sort((a,b)=>b[1]-a[1]);
+
+  // ── Récap mensuel (tous mois)
+  const byMonth={};
+  ncData.forEach(n=>{
+    const d=new Date(n.date), k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(!byMonth[k])byMonth[k]={count:0,time:0};
+    byMonth[k].count++; byMonth[k].time+=(n.timeLost||0);
+  });
+  const sortedMonths = Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
+
+  // ── Tableau toutes NC semaine
+  const thS = 'background:#1a2236;padding:9px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.75);border:none;white-space:nowrap;';
+  const tdS = 'padding:8px 10px;border-bottom:1px solid #e8eef6;font-size:12px;vertical-align:top;';
+  const tdSa= 'padding:8px 10px;border-bottom:1px solid #e8eef6;font-size:12px;vertical-align:top;background:#f4f7fb;';
+
+  const allNcRows = semaine.map((n,idx)=>{
     const d = new Date(n.date).toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const td = idx%2===0?tdS:tdSa;
     return `<tr>
-      <td style="${rowStyle}font-family:monospace;font-weight:700;color:#1a6ef5">${n.ref}</td>
-      <td style="${rowStyle}">${d}</td>
-      <td style="${rowStyle}">${n.job||'—'}</td>
-      <td style="${rowStyle}">${n.graphiste||'—'}</td>
-      <td style="${rowStyle}">${n.type}</td>
-      <td style="${rowStyle}text-align:right">${n.timeLost||0} min</td>
+      <td style="${td}font-family:monospace;font-weight:700;color:#1a6ef5;white-space:nowrap">${n.ref}</td>
+      <td style="${td}white-space:nowrap">${d}</td>
+      <td style="${td}font-family:monospace;color:#5a6a8a;font-size:11px">${n.job||'—'}</td>
+      <td style="${td}white-space:nowrap">${n.client||'—'}</td>
+      <td style="${td}white-space:nowrap"><span style="background:#e8f0ff;color:#1a6ef5;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700">${n.graphiste||'—'}</span></td>
+      <td style="${td}color:#374151;font-size:11px">${n.type}</td>
+      <td style="${td}text-align:right;white-space:nowrap;color:#0891b2;font-weight:700">${n.timeLost||0} min</td>
+      <td style="${td}color:#5a6a8a;font-size:11px;max-width:140px">${n.remark||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Récap mensuel tableau
+  const recapRows = sortedMonths.map(([k,v],idx)=>{
+    const [y,mo]=k.split('-');
+    const avg = v.count ? Math.round(v.time/v.count) : 0;
+    const bg = idx===0 ? 'background:#e8f0ff;' : '';
+    return `<tr>
+      <td style="${tdS}${bg}font-weight:${idx===0?'700':'400'}">${MONTHS_FR[parseInt(mo)-1]} ${y}${idx===0?' 🔵':''}</td>
+      <td style="${tdS}${bg}font-weight:700;color:#1a6ef5;text-align:center">${v.count}</td>
+      <td style="${tdS}${bg}text-align:center">${fmtMin(v.time)}</td>
+      <td style="${tdS}${bg}text-align:center;color:#5a6a8a">${avg} min</td>
     </tr>`;
   }).join('');
 
   return `
-<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:680px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.1)">
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:700px;margin:0 auto;background:#fff">
 
   <!-- HEADER -->
-  <div style="background:linear-gradient(135deg,#1a6ef5,#0891b2);padding:28px 32px;color:#fff">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;opacity:.75;margin-bottom:6px">LuxVisual — Pôle Production Print</div>
-    <div style="font-size:22px;font-weight:800;margin-bottom:4px">Rapport NC-PRINT</div>
-    <div style="font-size:13px;opacity:.8">Semaine du ${semStr} · Généré le ${dateStr}</div>
+  <div style="background:linear-gradient(135deg,#1a6ef5 0%,#0891b2 100%);padding:28px 32px;color:#fff">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;opacity:.7;margin-bottom:8px">LuxVisual — Pôle Production Print</div>
+    <div style="font-size:24px;font-weight:800;margin-bottom:4px">📊 Rapport NC-PRINT</div>
+    <div style="font-size:13px;opacity:.85">Semaine du <strong>${semStr}</strong> · Généré le ${dateStr}</div>
   </div>
 
   <!-- KPIs -->
-  <div style="display:flex;gap:0;border-bottom:2px solid #e8eef6">
-    <div style="flex:1;padding:20px 24px;border-right:1px solid #e8eef6;text-align:center">
-      <div style="font-size:32px;font-weight:800;color:#1a6ef5">${totalSem}</div>
-      <div style="font-size:11px;font-weight:600;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">NC cette semaine</div>
-    </div>
-    <div style="flex:1;padding:20px 24px;border-right:1px solid #e8eef6;text-align:center">
-      <div style="font-size:32px;font-weight:800;color:#0891b2">${fmtMin(tempsSem)}</div>
-      <div style="font-size:11px;font-weight:600;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Temps perdu (sem.)</div>
-    </div>
-    <div style="flex:1;padding:20px 24px;border-right:1px solid #e8eef6;text-align:center">
-      <div style="font-size:32px;font-weight:800;color:#7c3aed">${totalMois}</div>
-      <div style="font-size:11px;font-weight:600;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">NC ce mois</div>
-    </div>
-    <div style="flex:1;padding:20px 24px;text-align:center">
-      <div style="font-size:32px;font-weight:800;color:#059669">${fmtMin(tempsMois)}</div>
-      <div style="font-size:11px;font-weight:600;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Temps perdu (mois)</div>
-    </div>
-  </div>
+  <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #e8eef6">
+    <tr>
+      <td style="padding:20px 16px;text-align:center;border-right:1px solid #e8eef6">
+        <div style="font-size:36px;font-weight:800;color:#1a6ef5;line-height:1">${totalSem}</div>
+        <div style="font-size:10px;font-weight:700;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:6px">NC semaine</div>
+      </td>
+      <td style="padding:20px 16px;text-align:center;border-right:1px solid #e8eef6">
+        <div style="font-size:36px;font-weight:800;color:#0891b2;line-height:1">${fmtMin(tempsSem)}</div>
+        <div style="font-size:10px;font-weight:700;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:6px">Temps perdu sem.</div>
+      </td>
+      <td style="padding:20px 16px;text-align:center;border-right:1px solid #e8eef6">
+        <div style="font-size:36px;font-weight:800;color:#7c3aed;line-height:1">${totalMois}</div>
+        <div style="font-size:10px;font-weight:700;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:6px">NC ${MONTHS_FR[now.getMonth()]}</div>
+      </td>
+      <td style="padding:20px 16px;text-align:center">
+        <div style="font-size:36px;font-weight:800;color:#059669;line-height:1">${fmtMin(tempsMois)}</div>
+        <div style="font-size:10px;font-weight:700;color:#5a6a8a;text-transform:uppercase;letter-spacing:.5px;margin-top:6px">Temps perdu mois</div>
+      </td>
+    </tr>
+  </table>
 
   <div style="padding:24px 32px">
 
-    <!-- TOP TYPES -->
-    ${topTypes.length ? `
-    <div style="margin-bottom:24px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e8eef6">Top types de NC — semaine</div>
-      ${topTypes.map(([l,c],i)=>{
-        const colors=['#1a6ef5','#059669','#7c3aed','#dc2626','#0891b2'];
-        const pct = totalSem ? Math.round(c/totalSem*100) : 0;
-        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <div style="width:180px;font-size:12px;font-weight:500;color:#1a2236;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>
-          <div style="flex:1;height:20px;background:#e8eef6;border-radius:4px;overflow:hidden">
-            <div style="height:100%;width:${Math.max(pct,3)}%;background:${colors[i%5]};border-radius:4px;display:flex;align-items:center;padding-left:6px">
-              ${pct>=15?`<span style="font-size:10px;font-weight:700;color:#fff">${pct}%</span>`:''}
-            </div>
-          </div>
-          <div style="width:24px;font-size:12px;font-weight:700;color:#5a6a8a;text-align:right">${c}</div>
-        </div>`;
-      }).join('')}
-    </div>` : ''}
+    <!-- SÉPARATEUR SECTION -->
+    <div style="font-size:14px;font-weight:800;color:#1a2236;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #1a6ef5;display:flex;align-items:center;gap:8px">
+      📅 Analyse de la semaine
+    </div>
 
-    <!-- PAR GRAPHISTE -->
-    ${topGra.length ? `
-    <div style="margin-bottom:24px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e8eef6">NC par graphiste — semaine</div>
-      ${topGra.map(([g,c])=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f4f8;font-size:13px">
-          <span style="color:#1a2236;font-weight:500">${g}</span>
-          <span style="background:#e8f0ff;color:#1a6ef5;font-weight:700;padding:2px 10px;border-radius:10px;font-size:12px">${c} NC</span>
-        </div>`).join('')}
-    </div>` : ''}
+    <!-- GRAPHIQUES SEMAINE côte à côte -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:28px">
+      <tr>
+        <td style="width:50%;padding-right:12px;vertical-align:top">
+          ${barChart(typesSem, totalTypeSem, 'Types de NC — semaine')}
+        </td>
+        <td style="width:50%;padding-left:12px;vertical-align:top">
+          ${barChart(graSem, totalSem, 'NC par graphiste — semaine')}
+        </td>
+      </tr>
+    </table>
 
-    <!-- LISTE NC SEMAINE -->
-    ${ncRows ? `
-    <div style="margin-bottom:24px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e8eef6">
-        Détail des NC — semaine${semaine.length>20?' (20 premières sur '+semaine.length+')':''}
+    <!-- TABLEAU COMPLET NC SEMAINE -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid #e8eef6">
+        Registre complet — ${semaine.length} NC cette semaine
       </div>
-      <div style="overflow-x:auto">
+      ${semaine.length ? `
+      <div style="overflow:hidden;border-radius:8px;border:1px solid #e8eef6">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr>
-            <th style="${thStyle}">Réf.</th>
-            <th style="${thStyle}">Date</th>
-            <th style="${thStyle}">Job</th>
-            <th style="${thStyle}">Graphiste</th>
-            <th style="${thStyle}">Type NC</th>
-            <th style="${thStyle}text-align:right">Temps</th>
+            <th style="${thS}">Réf.</th>
+            <th style="${thS}">Date</th>
+            <th style="${thS}">Job</th>
+            <th style="${thS}">Client</th>
+            <th style="${thS}">Graphiste</th>
+            <th style="${thS}">Type NC</th>
+            <th style="${thS}text-align:right">Temps</th>
+            <th style="${thS}">Remarque</th>
           </tr></thead>
-          <tbody>${ncRows}</tbody>
+          <tbody>${allNcRows}</tbody>
         </table>
+      </div>` : `<div style="text-align:center;padding:28px;color:#8f9dbc;font-size:13px;background:#f4f7fb;border-radius:8px">Aucune NC enregistrée cette semaine.</div>`}
+    </div>
+
+    <!-- SÉPARATEUR SECTION MOIS -->
+    <div style="font-size:14px;font-weight:800;color:#1a2236;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #7c3aed">
+      📈 Analyse du mois — ${MONTHS_FR[now.getMonth()]} ${now.getFullYear()}
+    </div>
+
+    <!-- GRAPHIQUES MOIS côte à côte -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:28px">
+      <tr>
+        <td style="width:50%;padding-right:12px;vertical-align:top">
+          ${barChart(typesMois, totalTypeMois, 'Types de NC — mois')}
+        </td>
+        <td style="width:50%;padding-left:12px;vertical-align:top">
+          ${barChart(graMois, totalMois, 'NC par graphiste — mois')}
+        </td>
+      </tr>
+    </table>
+
+    <!-- RÉCAP MENSUEL HISTORIQUE -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#8f9dbc;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid #e8eef6">
+        Récapitulatif mensuel (6 derniers mois)
       </div>
-    </div>` : `<div style="text-align:center;padding:30px;color:#8f9dbc;font-size:13px">Aucune NC enregistrée cette semaine.</div>`}
+      ${sortedMonths.length ? `
+      <div style="overflow:hidden;border-radius:8px;border:1px solid #e8eef6">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr>
+            <th style="${thS}">Mois</th>
+            <th style="${thS}text-align:center">Total NC</th>
+            <th style="${thS}text-align:center">Temps perdu</th>
+            <th style="${thS}text-align:center">Moy./NC</th>
+          </tr></thead>
+          <tbody>
+            ${recapRows}
+            <tr style="background:#e8f0ff">
+              <td style="${tdS}font-weight:800;color:#1a6ef5">TOTAL</td>
+              <td style="${tdS}font-weight:800;color:#1a6ef5;text-align:center">${sortedMonths.reduce((s,[,v])=>s+v.count,0)}</td>
+              <td style="${tdS}font-weight:700;text-align:center">${fmtMin(sortedMonths.reduce((s,[,v])=>s+v.time,0))}</td>
+              <td style="${tdS}text-align:center;color:#5a6a8a">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>` : `<div style="text-align:center;padding:20px;color:#8f9dbc;font-size:13px">Aucune donnée.</div>`}
+    </div>
 
   </div>
 
   <!-- FOOTER -->
-  <div style="background:#f4f7fb;padding:16px 32px;border-top:1px solid #e8eef6;font-size:11px;color:#8f9dbc;text-align:center">
-    NC-PRINT — LuxVisual · Rapport automatique · ${dateStr}
+  <div style="background:#f4f7fb;padding:16px 32px;border-top:2px solid #e8eef6;font-size:11px;color:#8f9dbc;text-align:center">
+    NC-PRINT — LuxVisual &nbsp;·&nbsp; Rapport hebdomadaire &nbsp;·&nbsp; ${dateStr}
   </div>
+
 </div>`;
 }
 
@@ -1205,14 +1313,51 @@ function sendRapport(){
 }
 
 // ═══════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════
+// ═══════════════════════
+// INIT — Firebase realtime listener
+// ═══════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
   initLogin();
-  if(currentUser){
-    ncData=getData();
-    showApp();
+
+  // Détection fichier ouvert en local (file://) — Firebase ne fonctionne pas en local
+  if(window.location.protocol === 'file:') {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#dc2626;color:#fff;padding:12px 20px;font-family:Arial,sans-serif;font-size:13px;font-weight:600;text-align:center;line-height:1.5';
+    warn.innerHTML = '⚠️ Fichier ouvert en local (file://) — La base de données partagée ne fonctionne pas ainsi.<br>Héberge ce fichier sur GitHub Pages ou un serveur web pour activer la synchronisation entre postes.';
+    document.body.prepend(warn);
   }
+
+  if(currentUser) showApp();
+
+  // Écoute temps réel Firestore — mise à jour instantanée sur tous les postes
+  ncCollection.orderBy('date','desc').onSnapshot(snap=>{
+    ncData = snap.docs.map(d=>({...d.data(), _docId:d.id}));
+    updateStats();
+    updateRef();
+    populateFilters();
+    const av = document.querySelector('.view.active');
+    if(av && av.id==='view-list')  renderList();
+    if(av && av.id==='view-stats') renderStats();
+    if(av && av.id==='view-recap') renderRecap();
+    // Masquer la bannière d'erreur si Firebase est connecté
+    document.getElementById('firebase-error-banner')&&document.getElementById('firebase-error-banner').remove();
+  }, e=>{
+    console.error('Firebase error:', e.code, e.message);
+    // Afficher une bannière d'erreur détaillée
+    let msg = 'Erreur connexion base de données.';
+    if(e.code==='permission-denied') msg = '🔒 Accès refusé par Firestore. Vérifier les règles de sécurité dans la console Firebase.';
+    else if(e.code==='unavailable')  msg = '📡 Firestore indisponible. Vérifier la connexion internet.';
+    else if(e.message&&e.message.includes('file:')) msg = '📁 Fichier ouvert en local. Héberger sur GitHub Pages pour la base partagée.';
+    else msg = `Erreur Firebase : ${e.code||e.message}`;
+    let banner = document.getElementById('firebase-error-banner');
+    if(!banner){
+      banner = document.createElement('div');
+      banner.id = 'firebase-error-banner';
+      banner.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:9999;background:#dc2626;color:#fff;padding:12px 20px;border-radius:10px;font-family:Arial,sans-serif;font-size:13px;font-weight:600;text-align:center;max-width:90%;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+      document.body.appendChild(banner);
+    }
+    banner.textContent = msg;
+  });
 });
 </script>
 </body>
