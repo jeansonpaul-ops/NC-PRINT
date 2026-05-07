@@ -531,11 +531,19 @@ function initLogin(){
 }
 
 function selectUser(i){
+  const op=OPERATORS[i];
+  // Invité : connexion directe sans mot de passe
+  if(op.name==='Invité'){
+    currentUser=op.name;
+    localStorage.setItem('lv_ncprint_user',currentUser);
+    showApp();
+    return;
+  }
   pendingLoginIdx=i;
   document.getElementById('operatorGrid').style.display='none';
   const p=document.getElementById('loginPass');
   p.classList.add('show');
-  document.getElementById('loginPassUser').textContent=OPERATORS[i].name;
+  document.getElementById('loginPassUser').textContent=op.name;
   document.getElementById('loginPassInput').value='';
   document.getElementById('loginError').textContent='';
   setTimeout(()=>document.getElementById('loginPassInput').focus(),100);
