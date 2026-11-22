@@ -26,7 +26,7 @@ const dm=s=>{const[y,m,d]=s.split('-');return`${d}/${m}`};
 const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const fmtMin=m=>m>=60?`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`:`${m} min`;
 const BLUE='#0066cc',TEAL='#0f8b8d',GREEN='#1e9e6a',INK='#14181f',MUTE='#5f6877',LINE='#e3e6eb';
-const COLORS=['#10489e','#136cc3','#10679e','#1392c3','#10859e','#13b7c3','#109e98','#13c3a9','#109e7a','#13c384','#109e5b','#13c35e'];
+const COLORS=['#10489e','#136cc3','#1392c3','#10859e','#109e98','#109e7a','#13b7c3','#13c384'];
 
 const all=(await load()).filter(n=>n.date&&n.ref);
 const now=new Date(),today=ymd(now);
@@ -45,7 +45,7 @@ function bars(title,entries,fmt){
   if(!entries.length)return`<h3 style="font-size:16px;margin:24px 0 8px;color:${INK}">${esc(title)}</h3><p style="color:${MUTE};font-size:14px;margin:0">Aucune donnée.</p>`;
   return`<h3 style="font-size:16px;margin:24px 0 8px;color:${INK}">${esc(title)}</h3><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">`+
   entries.map(([l,v],i)=>{const pct=total?Math.round(v/total*100):0,w=Math.max(2,Math.round(v/mx*100));
-    return`<tr><td style="padding:4px 8px 4px 0;font-size:13px;color:${INK};width:38%">${esc(l)}</td><td style="padding:4px 0"><div style="background:#f1f3f6;border-radius:3px"><div style="width:${w}%;background:${COLORS[(i*3)%12]};height:14px;border-radius:3px"></div></div></td><td style="padding:4px 0 4px 8px;font-size:12px;color:${MUTE};white-space:nowrap;text-align:right;width:22%">${fmt?fmt(v):v} · ${pct}%</td></tr>`}).join('')+'</table>';
+    return`<tr><td style="padding:4px 8px 4px 0;font-size:13px;color:${INK};width:38%">${esc(l)}</td><td style="padding:4px 0"><div style="background:#f1f3f6;border-radius:3px"><div style="width:${w}%;background:${COLORS[i%8]};height:14px;border-radius:3px"></div></div></td><td style="padding:4px 0 4px 8px;font-size:12px;color:${MUTE};white-space:nowrap;text-align:right;width:22%">${fmt?fmt(v):v} · ${pct}%</td></tr>`}).join('')+'</table>';
 }
 const count=(a,fn)=>{const m={};a.forEach(n=>fn(n).forEach(k=>m[k]=(m[k]||0)+1));return Object.entries(m).sort((a,b)=>b[1]-a[1])};
 const byType=count(month,types);
@@ -74,7 +74,15 @@ ${bars('Par type de NC',byType)}${bars('Par graphiste',byGra)}${bars('Temps perd
 ${months.map(([k,v])=>`<tr><td style="${td}">${MOIS[+k.slice(5)-1]} ${k.slice(0,4)}</td><td style="${td};text-align:right"><b>${v.c}</b></td><td style="${td};text-align:right">${fmtMin(v.t)}</td><td style="${td};text-align:right">${v.c?Math.round(v.t/v.c):0} min</td></tr>`).join('')}</table>
 <p style="font-size:12px;color:${MUTE};margin:24px 0 0">Rapport généré automatiquement par NC Print.</p>
 </td></tr></table></td></tr></table></body></html>`;
+// Compactage : classes CSS (balise <style>) à la place des styles inline répétés
+let out=html;
+const rep=(str,cls)=>{out=out.split(`style="${str};`).join(`class="${cls}" style="`).split(`style="${str}"`).join(`class="${cls}"`)};
+rep(th,'th');rep(td,'d');
+const bar1=`padding:4px 8px 4px 0;font-size:13px;color:${INK};width:38%`,bar2='padding:4px 0',bar3=`padding:4px 0 4px 8px;font-size:12px;color:${MUTE};white-space:nowrap;text-align:right;width:22%`;
+rep(bar1,'b1');rep(bar2,'b2');rep(bar3,'b3');
+const css=`<style>.th{${th}}.d{${td}}.b1{${bar1}}.b2{${bar2}}.b3{${bar3}}</style>`;
+out=out.replace('</head>',css+'</head>').replace(/\n/g,'');
 fs.mkdirSync('report',{recursive:true});
-fs.writeFileSync('report/rapport.html',html);
+fs.writeFileSync('report/rapport.html',out);
 fs.writeFileSync('report/meta.json',JSON.stringify({generatedAt:now.toISOString(),subject:`NC Print — rapport hebdomadaire — semaine du ${wk}`,weekNC:week.length,monthNC:month.length,totalNC:all.length,text:`NC Print — semaine du ${wk} : ${week.length} NC, ${fmtMin(tl(week))} perdues. Mois en cours : ${month.length} NC, ${fmtMin(tl(month))}.`},null,2));
 console.log('OK',week.length,'NC semaine,',month.length,'mois,',all.length,'total');
