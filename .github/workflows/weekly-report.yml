@@ -4,7 +4,7 @@ on:
     - cron: '30 12 * * 5'   # vendredi 12:30 UTC (13:30 hiver / 14:30 été, heure de Luxembourg)
   workflow_dispatch:
   push:
-    paths: ['scripts/weekly-report.mjs', '.github/workflows/weekly-report.yml']
+    paths: ['scripts/**', 'package.json', '.github/workflows/weekly-report.yml']
 permissions:
   contents: write
 concurrency: weekly-report
@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
       - run: node scripts/weekly-report.mjs
       - name: Publier le rapport
         run: |
