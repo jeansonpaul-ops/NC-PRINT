@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: '30 12 * * 5'   # vendredi 12:30 UTC (13:30 hiver / 14:30 été, heure de Luxembourg)
   workflow_dispatch:
+    inputs:
+      envoyer:
+        description: 'Envoyer le mail (test)'
+        type: boolean
+        default: false
   push:
     paths: ['scripts/**', 'package.json', '.github/workflows/weekly-report.yml']
 permissions:
@@ -25,3 +30,11 @@ jobs:
           git diff --cached --quiet || git commit -m "Rapport hebdo NC Print [skip ci]"
           git pull --rebase origin main
           git push origin HEAD:main
+      - name: Envoyer le mail
+        if: github.event_name == 'schedule' || inputs.envoyer == true
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_TEST: ${{ github.event_name != 'schedule' }}
+        run: |
+          sleep 20
+          node scripts/send-report.mjs
