@@ -2,7 +2,13 @@
 import fs from 'node:fs';
 const key=process.env.RESEND_API_KEY;
 if(!key){console.error('RESEND_API_KEY absent : envoi ignoré.');process.exit(0)}
-const to=(process.env.REPORT_TO||'pao@luxvisual.lu').split(',').map(s=>s.trim()).filter(Boolean);
+let to=(process.env.REPORT_TO||'').split(',').map(s=>s.trim()).filter(Boolean);
+if(!to.length){
+  try{const r=await fetch('https://firestore.googleapis.com/v1/projects/'+(process.env.FB_PROJECT||'luxvisual-nc-print')+'/databases/(default)/documents/nc_print_cmd/config');
+    if(r.ok){const d=await r.json();to=(d.fields?.to?.arrayValue?.values||[]).map(v=>v.stringValue).filter(Boolean)}}catch(e){console.error('config destinataires',e.message)}
+}
+if(!to.length)to=['pao@luxvisual.lu'];
+console.log('Destinataires :',to.join(', '));
 const from=process.env.REPORT_FROM||'NC Print <onboarding@resend.dev>';
 const meta=JSON.parse(fs.readFileSync('report/meta.json','utf8'));
 const html=fs.readFileSync('report/rapport.html','utf8');

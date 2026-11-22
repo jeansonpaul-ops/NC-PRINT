@@ -1,0 +1,38 @@
+name: Envoi du rapport à la demande
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: weekly-report
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - id: chk
+        run: node scripts/request.mjs check
+      - if: steps.chk.outputs.pending == 'true'
+        run: npm install --no-audit --no-fund
+      - if: steps.chk.outputs.pending == 'true'
+        run: node scripts/weekly-report.mjs
+      - if: steps.chk.outputs.pending == 'true'
+        name: Publier les images
+        run: |
+          git config user.name "nc-print-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add report
+          git diff --cached --quiet || git commit -m "Rapport à la demande NC Print [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - if: steps.chk.outputs.pending == 'true'
+        name: Envoyer le mail
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          sleep 20
+          node scripts/send-report.mjs
+          node scripts/request.mjs done

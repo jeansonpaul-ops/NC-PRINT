@@ -10,7 +10,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 :root{
   /* neutres graphite, légèrement teintés bleu */
@@ -523,28 +522,15 @@ path.sl.on{stroke-width:34}
 
     <!-- RAPPORT EMAIL -->
     <div class="view" id="view-rapport">
-      <div class="ref-banner page-banner"><div><span class="kick">Envoi manuel</span><span class="pb-t">Rapport email</span><span class="date-sub">Destinataire : pao@luxvisual.lu</span></div></div>
-      <section class="fcard" id="emailjs-setup"><div class="fh">Configuration EmailJS</div><div class="fb">
-        <p class="lead-text">EmailJS envoie les emails depuis le navigateur (200 par mois en gratuit). À configurer une seule fois.</p>
-        <div class="note">
-          <ol>
-            <li>Créer un compte sur <a href="https://www.emailjs.com" target="_blank" rel="noopener">emailjs.com</a>.</li>
-            <li>Ajouter un service email (Gmail, Outlook) et copier le <strong>Service ID</strong>.</li>
-            <li>Créer un template : champ To <code>{{to_email}}</code>, Subject <code>{{subject}}</code>, contenu <code>{{{rapport_html}}}</code> en triple accolades, sinon le HTML s'affiche en texte. Copier le <strong>Template ID</strong>.</li>
-            <li>Account, API Keys : copier la <strong>Public Key</strong>.</li>
-          </ol>
-        </div>
-        <div class="pin-fields">
-          <div class="pin-field"><label for="ejs-pubkey">Public Key</label><input type="text" id="ejs-pubkey" placeholder="ex. aBcDeFgHiJkLmNoPq"></div>
-          <div class="pin-field"><label for="ejs-service">Service ID</label><input type="text" id="ejs-service" placeholder="service_xxxxxxx"></div>
-          <div class="pin-field"><label for="ejs-template">Template ID</label><input type="text" id="ejs-template" placeholder="template_xxxxxxx"></div>
-          <div class="pin-field"><label for="ejs-to">Destinataire</label><input type="email" id="ejs-to" value="pao@luxvisual.lu"></div>
-        </div>
-        <button class="btn btn-primary" onclick="saveEmailConfig()"><span data-ic="save" data-s="18"></span>Sauvegarder la configuration</button>
+      <div class="ref-banner page-banner"><div><span class="kick">Envoi à la demande</span><span class="pb-t">Rapport email</span><span class="date-sub">Rapport hebdomadaire</span></div></div>
+      <section class="fcard"><div class="fh">Destinataires du rapport</div><div class="fb">
+        <p class="lead-text">Le rapport du vendredi et le bouton ci-dessous écrivent à toutes ces adresses.</p>
+        <div id="dest-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="email" id="dest-new" placeholder="prenom.nom@luxvisual.lu" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')addDest()"><button class="btn btn-primary" onclick="addDest()">Ajouter</button></div>
       </div></section>
 
       <section class="fcard"><div class="fh">Envoyer le rapport hebdomadaire</div><div class="fb">
-        <p class="lead-text">Le rapport contient les NC de la semaine, les statistiques du mois et le récapitulatif mensuel. Destinataire : <strong id="rapport-dest">pao@luxvisual.lu</strong>.</p>
+        <p class="lead-text">Le rapport contient les NC de la semaine, les statistiques du mois et le récapitulatif mensuel. Destinataires : voir la carte ci-dessus. Après un clic, le mail part en quelques minutes (graphiques identiques à ceux du rapport du vendredi).</p>
         <div class="rapport-preview" id="rapport-preview">Cliquez sur Aperçu pour prévisualiser le rapport avant l'envoi.</div>
         <div class="btn-row">
           <button class="btn btn-ghost" onclick="previewRapport()"><span data-ic="eye" data-s="16"></span>Aperçu</button>
@@ -1318,40 +1304,30 @@ new MutationObserver(ms=>ms.forEach(r=>{const t=r.target;if(t.matches&&t.matches
 // RAPPORT EMAIL (EmailJS)
 // ═══════════════════════════════════════════════
 
-const EMAILJS_CONFIG_KEY = 'ncprint_emailjs';
-
-function getEmailConfig(){
-  try{ return JSON.parse(localStorage.getItem(EMAILJS_CONFIG_KEY)||'{}'); }
-  catch{ return {}; }
+const RAPPORT_REQ = db.collection('nc_print_cmd').doc('rapport');
+const DEST_REF=db.collection('nc_print_cmd').doc('config');
+let destList=['pao@luxvisual.lu'];
+function renderDest(){
+  const el=document.getElementById('dest-list');if(!el)return;
+  el.innerHTML=destList.map((m,i)=>`<span style="display:inline-flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:999px;background:var(--c-soft,#e8f1fb);font-size:14px">${m.replace(/</g,'&lt;')}${destList.length>1?`<button onclick="delDest(${i})" aria-label="Retirer ${m}" style="border:0;background:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px">×</button>`:''}</span>`).join('');
 }
-
-function saveEmailConfig(){
-  const cfg = {
-    publicKey:  document.getElementById('ejs-pubkey').value.trim(),
-    serviceId:  document.getElementById('ejs-service').value.trim(),
-    templateId: document.getElementById('ejs-template').value.trim(),
-    to:         document.getElementById('ejs-to').value.trim() || 'pao@luxvisual.lu',
-  };
-  if(!cfg.publicKey||!cfg.serviceId||!cfg.templateId){
-    toast('Remplir tous les champs EmailJS',true); return;
-  }
-  localStorage.setItem(EMAILJS_CONFIG_KEY, JSON.stringify(cfg));
-  document.getElementById('rapport-dest').textContent = cfg.to;
-  toast('Configuration EmailJS sauvegardée');
+function saveDest(){return DEST_REF.set({to:destList},{merge:true}).catch(e=>{console.error(e);toast('Erreur : destinataires non enregistrés',true)})}
+function addDest(){
+  const i=document.getElementById('dest-new'),m=i.value.trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)){toast('Adresse e-mail invalide',true);return}
+  if(destList.includes(m)){toast('Déjà dans la liste',true);return}
+  destList=[...destList,m];i.value='';renderDest();saveDest();toast('Destinataire ajouté');
 }
-
+function delDest(i){destList=destList.filter((_,j)=>j!==i);renderDest();saveDest()}
 function loadEmailConfigUI(){
-  const cfg = getEmailConfig();
-  if(cfg.publicKey)  document.getElementById('ejs-pubkey').value  = cfg.publicKey;
-  if(cfg.serviceId)  document.getElementById('ejs-service').value  = cfg.serviceId;
-  if(cfg.templateId) document.getElementById('ejs-template').value = cfg.templateId;
-  if(cfg.to)         { document.getElementById('ejs-to').value = cfg.to; document.getElementById('rapport-dest').textContent = cfg.to; }
-  // Dernier envoi
-  const last = localStorage.getItem('ncprint_last_rapport');
-  if(last) document.getElementById('rapport-last-sent').textContent = 'Dernier envoi : ' + last;
+  DEST_REF.onSnapshot(d=>{const t=d.exists&&d.data().to;if(Array.isArray(t)&&t.length)destList=t;renderDest()},()=>renderDest());
+  RAPPORT_REQ.onSnapshot(d=>{
+    const el=document.getElementById('rapport-last-sent'); if(!el)return;
+    const x=d.exists?d.data():null; if(!x){el.textContent='';return}
+    const f=t=>t?new Date(t).toLocaleString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    el.textContent=x.status==='demande'?'Demande en attente depuis '+f(x.requestedAt)+' : le mail part dans quelques minutes.':(x.sentAt?'Dernier envoi : '+f(x.sentAt)+(x.by?' (demandé par '+x.by+')':''):'');
+  },()=>{});
 }
-
-function fmtMin(m){ return m>=60?`${Math.floor(m/60)}h${m%60?String(m%60).padStart(2,'0'):'00'}`:`${m} min`; }
 
 function buildRapportHTML(){
   const now = new Date();
@@ -1535,42 +1511,14 @@ function previewRapport(){
   toast('Aperçu généré');
 }
 
-function sendRapport(){
-  const cfg = getEmailConfig();
-  if(!cfg.publicKey||!cfg.serviceId||!cfg.templateId){
-    toast("Configurer EmailJS d'abord (section ci-dessus)",true); return;
-  }
-  const btn = document.getElementById('btn-send-rapport');
-  const label = document.getElementById('send-label');
-  label.textContent = 'Envoi en cours…';
-  btn.disabled = true;
-
-  emailjs.init(cfg.publicKey);
-
-  const now = new Date();
-  const day = now.getDay()||7;
-  const monday = new Date(now); monday.setDate(now.getDate()-day+1);
-  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
-  const semStr = `${monday.toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit'})} – ${sunday.toLocaleDateString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
-
-  emailjs.send(cfg.serviceId, cfg.templateId, {
-    to_email:     cfg.to,
-    subject:      `Rapport NC-PRINT — Semaine du ${semStr}`,
-    rapport_html: buildRapportHTML(),
-    date:         now.toLocaleDateString('fr-LU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
-    semaine:      semStr,
-  }).then(()=>{
-    const ts = now.toLocaleString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    localStorage.setItem('ncprint_last_rapport', ts);
-    document.getElementById('rapport-last-sent').textContent = 'Dernier envoi : ' + ts;
-    toast('Rapport envoyé à ' + cfg.to);
-  }).catch(err=>{
-    console.error(err);
-    toast("Erreur d'envoi. Vérifier la config EmailJS.",true);
-  }).finally(()=>{
-    label.textContent = 'Envoyer le rapport';
-    btn.disabled = false;
-  });
+async function sendRapport(){
+  const btn=document.getElementById('btn-send-rapport'),label=document.getElementById('send-label');
+  label.textContent='Envoi de la demande…'; btn.disabled=true;
+  try{
+    await RAPPORT_REQ.set({status:'demande',requestedAt:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser&&(currentUser.name||currentUser))||''},{merge:true});
+    toast('Demande envoyée : le rapport part par e-mail dans quelques minutes');
+  }catch(err){console.error(err);toast("Erreur : demande non enregistrée.",true)}
+  finally{label.textContent='Envoyer le rapport';btn.disabled=false}
 }
 
 // ═══════════════════════════════════════════════
