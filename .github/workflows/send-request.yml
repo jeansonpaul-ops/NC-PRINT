@@ -34,5 +34,4 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           sleep 20
-          node scripts/send-report.mjs
-          node scripts/request.mjs done
+          if node scripts/send-report.mjs; then node scripts/request.mjs done; else node scripts/request.mjs fail; fi

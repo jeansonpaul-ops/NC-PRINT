@@ -1325,7 +1325,7 @@ function loadEmailConfigUI(){
     const el=document.getElementById('rapport-last-sent'); if(!el)return;
     const x=d.exists?d.data():null; if(!x){el.textContent='';return}
     const f=t=>t?new Date(t).toLocaleString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-    el.textContent=x.status==='demande'?'Demande en attente depuis '+f(x.requestedAt)+' : le mail part dans quelques minutes.':(x.sentAt?'Dernier envoi : '+f(x.sentAt)+(x.by?' (demandé par '+x.by+')':''):'');
+    el.textContent=x.status==='erreur'?'Dernier envoi en erreur : '+(x.error||'inconnue'):x.status==='demande'?'Demande en attente depuis '+f(x.requestedAt)+' : le mail part dans quelques minutes.':(x.sentAt?'Dernier envoi : '+f(x.sentAt)+(x.by?' (demandé par '+x.by+')':'')+(x.error?' · non remis : '+x.error:''):'');
   },()=>{});
 }
 
