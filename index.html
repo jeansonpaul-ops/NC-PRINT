@@ -1153,6 +1153,17 @@ function renderRecap(){
   ncData.forEach(n=>{const d=new Date(n.date),k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     if(n.graphiste){if(!graByMonth[n.graphiste][k])graByMonth[n.graphiste][k]=0;graByMonth[n.graphiste][k]++}});
   const allMonths=sorted.map(([k])=>k);
+  const typeMonth={};
+  ncData.forEach(n=>{const d=new Date(n.date),k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    (n.types||[n.type]).forEach(t=>{if(!t)return;const c=t.startsWith('Autre:')?'Autre':t;(typeMonth[c]=typeMonth[c]||{})[k]=(typeMonth[c][k]||0)+1})});
+  const typeRows=Object.keys(typeMonth).map(l=>({l,tot:Object.values(typeMonth[l]).reduce((x,y)=>x+y,0)})).sort((x,y)=>y.tot-x.tot);
+  const typeMax=typeRows.length?typeRows[0].tot:1;
+  const typeCard=typeRows.length?`<section class="fcard"><div class="fh">NC par type / mois</div>
+    <div class="fb flush" style="overflow-x:auto"><table class="recap-table"><thead><tr><th>Type de NC</th>
+    ${allMonths.map(k=>{const[y,mo]=k.split('-');return`<th>${MONTHS_FR[parseInt(mo)-1].substring(0,3)} ${y.substring(2)}</th>`}).join('')}<th>Total</th><th style="width:140px"></th></tr></thead><tbody>
+    ${typeRows.map(({l,tot})=>{const k=typeColor(l);
+      return`<tr><td><span class="tag" style="--c:${k.c};background:${k.t};color:${k.d}"><i class="dot" style="background:${k.c}"></i>${esc(l)}</span></td>${allMonths.map(m=>{const v=typeMonth[l][m]||0;return v?`<td><span style="display:inline-block;min-width:26px;text-align:center;padding:1px 6px;border-radius:6px;background:${k.t};color:${k.d};font-weight:600">${v}</span></td>`:'<td style="color:var(--text3)">—</td>'}).join('')}<td><strong>${tot}</strong></td><td><div style="height:8px;border-radius:4px;background:${k.c};width:${Math.max(6,Math.round(tot/typeMax*100))}%"></div></td></tr>`}).join('')}
+    </tbody></table></div></section>`:'';
   el.innerHTML=`
     <section class="fcard"><div class="fh">Résumé par mois</div>
     <div class="fb flush" style="overflow-x:auto"><table class="recap-table"><thead><tr><th>Mois</th><th>NC</th><th>Temps perdu</th><th>Moy./NC</th></tr></thead><tbody>
@@ -1160,6 +1171,7 @@ function renderRecap(){
       return`<tr><td>${MONTHS_FR[parseInt(mo)-1]} ${y}</td><td><strong>${v.count}</strong></td><td>${fmt(v.time)}</td><td>${avg} min</td></tr>`}).join('')}
     <tr class="total-row"><td>Total</td><td>${totalNC}</td><td>${fmt(totalTime)}</td><td>${totalNC?Math.round(totalTime/totalNC):0} min</td></tr>
     </tbody></table></div></section>
+    ${typeCard}
     <section class="fcard"><div class="fh">NC par graphiste / mois</div>
     <div class="fb flush" style="overflow-x:auto"><table class="recap-table"><thead><tr><th>Graphiste</th>
     ${allMonths.map(k=>{const[y,mo]=k.split('-');return`<th>${MONTHS_FR[parseInt(mo)-1].substring(0,3)} ${y.substring(2)}</th>`}).join('')}<th>Total</th></tr></thead><tbody>
