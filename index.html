@@ -580,18 +580,18 @@ const GRAPHISTES = ['Paul','Félix','Manon','Christopher','Invité (Graphiste)']
 // Types NC production print
 // c = couleur, d = version foncée (texte), t = teinte claire (fond)
 const NC_TYPES = [
-  {label:'Fond perdu insuffisant', c:'#10489e', d:'#0a2b5c', t:'#e7eef9'},
-  {label:'Traits de coupe absents / mal positionnés', c:'#136cc3', d:'#0a345c', t:'#e7f0f9'},
-  {label:'Contour de découpe absent / non standard', c:'#10679e', d:'#0a3c5c', t:'#e7f2f9'},
-  {label:'Image pixélisée', c:'#1392c3', d:'#0a455c', t:'#e7f4f9'},
-  {label:'Fichier en RVB', c:'#10859e', d:'#0a4e5c', t:'#e7f6f9'},
-  {label:'Blanc non défini', c:'#13b7c3', d:'#0a565c', t:'#e7f8f9'},
-  {label:'Dimensions incorrectes', c:'#109e98', d:'#0a5c59', t:'#e7f9f8'},
-  {label:'Fichier corrompu', c:'#13c3a9', d:'#0a5c50', t:'#e7f9f6'},
-  {label:'Mauvais format (JPG/PDF)', c:'#109e7a', d:'#0a5c47', t:'#e7f9f4'},
-  {label:'Transparences non aplaties', c:'#13c384', d:'#0a5c3e', t:'#e7f9f2'},
-  {label:'Amalgamme / Recto Verso mal préparé', c:'#109e5b', d:'#0a5c36', t:'#e7f9f0'},
-  {label:'Autre', c:'#13c35e', d:'#0a5c2d', t:'#e7f9ee'},
+  {label:'Fond perdu insuffisant', c:'#2563eb', d:'#092767', t:'#e3ebfc'},
+  {label:'Traits de coupe absents / mal positionnés', c:'#dc2626', d:'#611010', t:'#fbe5e5'},
+  {label:'Contour de découpe absent / non standard', c:'#ca8a04', d:'#6e4b02', t:'#fef5e1'},
+  {label:'Image pixélisée', c:'#7c3aed', d:'#2c0967', t:'#ece3fc'},
+  {label:'Fichier en RVB', c:'#0d9488', d:'#09675f', t:'#e3fdfa'},
+  {label:'Blanc non défini', c:'#ea580c', d:'#6b2805', t:'#feebe2'},
+  {label:'Dimensions incorrectes', c:'#db2777', d:'#601034', t:'#fbe5ee'},
+  {label:'Fichier corrompu', c:'#4d7c0f', d:'#3e640c', t:'#f1fce4'},
+  {label:'Mauvais format (JPG/PDF)', c:'#0891b2', d:'#05576b', t:'#e2f8fe'},
+  {label:'Transparences non aplaties', c:'#16a34a', d:'#0d632d', t:'#e4fbed'},
+  {label:'Amalgamme / Recto Verso mal préparé', c:'#a21caf', d:'#5a0f61', t:'#f9e5fb'},
+  {label:'Autre', c:'#64748b', d:'#2f3641', t:'#edeff2'},
 ];
 function typeColor(l){return NC_TYPES.find(t=>t.label===l)||NC_TYPES[11]}
 function typeTags(types){return types.map(l=>{const k=typeColor(l);return`<span class="tag" style="--c:${k.c};background:${k.t};color:${k.d}"><i class="dot" style="background:${k.c}"></i>${esc(l)}</span>`}).join('')}
@@ -1036,7 +1036,7 @@ const CHART_MODES=[{k:'bars',l:'Barres',i:'barsH'},{k:'cols',l:'Colonnes',i:'bar
 let chartMode={types:'bars',gra:'bars',time:'bars'};
 try{Object.assign(chartMode,JSON.parse(localStorage.getItem('ncprint_chartmode')||'{}'))}catch(e){}
 function setChartMode(id,m){chartMode[id]=m;try{localStorage.setItem('ncprint_chartmode',JSON.stringify(chartMode))}catch(e){}renderStats()}
-const GRA_COL=[0,3,6,9,11].map(i=>NC_TYPES[i]);
+const GRA_COL=[{c:'#10489e',d:'#0a2b5c',t:'#e7eef9'},{c:'#1392c3',d:'#0a455c',t:'#e7f4f9'},{c:'#109e98',d:'#0a5c59',t:'#e7f9f8'},{c:'#109e7a',d:'#0a5c47',t:'#e7f9f4'},{c:'#13c35e',d:'#0a5c2d',t:'#e7f9ee'}];
 const graColor=g=>{const i=GRAPHISTES.indexOf(g);return GRA_COL[i<0?4:i%GRA_COL.length]};
 
 function chartBlock(id,title,all,fmtVal,center){

@@ -28,7 +28,7 @@ const dm=s=>{const[y,m,d]=s.split('-');return`${d}/${m}`};
 const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const fmtMin=m=>m>=60?`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`:`${m} min`;
 const BLUE='#0066cc',TEAL='#0f8b8d',GREEN='#1e9e6a',INK='#14181f',MUTE='#5f6877',LINE='#e3e6eb';
-const TYPE_COL={'Fond perdu insuffisant':'#10489e','Traits de coupe absents / mal positionnés':'#136cc3','Contour de découpe absent / non standard':'#10679e','Image pixélisée':'#1392c3','Fichier en RVB':'#10859e','Blanc non défini':'#13b7c3','Dimensions incorrectes':'#109e98','Fichier corrompu':'#13c3a9','Mauvais format (JPG/PDF)':'#109e7a','Transparences non aplaties':'#13c384','Amalgamme / Recto Verso mal préparé':'#109e5b','Autre':'#13c35e'};
+const TYPE_COL={'Fondperduinsuffisant':'#2563eb','Traitsdecoupeabsents/malpositionnés':'#dc2626','Contourdedécoupeabsent/nonstandard':'#ca8a04','Imagepixélisée':'#7c3aed','FichierenRVB':'#0d9488','Blancnondéfini':'#ea580c','Dimensionsincorrectes':'#db2777','Fichiercorrompu':'#4d7c0f','Mauvaisformat(JPG/PDF)':'#0891b2','Transparencesnonaplaties':'#16a34a','Amalgamme/RectoVersomalpréparé':'#a21caf','Autre':'#64748b'};
 const GRA_COL={'Paul':'#10489e','Félix':'#1392c3','Manon':'#109e98','Christopher':'#109e7a','Invité (Graphiste)':'#13c35e'};
 const PAL=['#10489e','#136cc3','#1392c3','#10859e','#109e98','#109e7a','#13b7c3','#13c384'];
 
@@ -48,7 +48,7 @@ const month=week;
 const tl=a=>a.reduce((s,n)=>s+(n.timeLost||0),0);
 const types=n=>(n.types&&n.types.length?n.types:[n.type]).filter(Boolean).map(t=>t.startsWith('Autre:')?'Autre':t);
 const count=(a,fn)=>{const m={};a.forEach(n=>fn(n).forEach(k=>m[k]=(m[k]||0)+1));return Object.entries(m).sort((a,b)=>b[1]-a[1])};
-const byType=count(month,types).map(([l,v])=>({l,v,c:TYPE_COL[l]||'#13c35e'}));
+const byType=count(month,types).map(([l,v])=>({l,v,c:TYPE_COL[l]||'#64748b'}));
 const byGra=count(month,n=>[n.graphiste||'Non renseigné']).map(([l,v],i)=>({l,v,c:GRA_COL[l]||PAL[i%8]}));
 const tm={};month.forEach(n=>{if(n.timeLost){const g=n.graphiste||'Non renseigné';tm[g]=(tm[g]||0)+n.timeLost}});
 const timeGra=Object.entries(tm).sort((a,b)=>b[1]-a[1]).map(([l,v],i)=>({l,v,c:GRA_COL[l]||PAL[i%8]}));
