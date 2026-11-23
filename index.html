@@ -1329,6 +1329,8 @@ function loadEmailConfigUI(){
   },()=>{});
 }
 
+function fmtMin(m){ return m>=60?`${Math.floor(m/60)}h${m%60?String(m%60).padStart(2,'0'):'00'}`:`${m} min`; }
+
 function buildRapportHTML(){
   const now = new Date();
   const day = now.getDay()||7;
