@@ -38,8 +38,13 @@ const dow=(new Date(today+'T12:00:00Z').getUTCDay()+6)%7;
 const monday=ymd(new Date(new Date(today+'T12:00:00Z').getTime()-dow*86400000));
 const monthKey=today.slice(0,7);
 const day=n=>ymd(new Date(n.date));
-const week=all.filter(n=>day(n)>=monday&&day(n)<=today).sort((a,b)=>a.date.localeCompare(b.date));
-const month=all.filter(n=>day(n).slice(0,7)===monthKey);
+const okD=x=>/^\d{4}-\d{2}-\d{2}$/.test(x||'');
+let start=okD(process.env.REPORT_START)?process.env.REPORT_START:monday,end=okD(process.env.REPORT_END)?process.env.REPORT_END:today;
+if(start>end)[start,end]=[end,start];
+const custom=start!==monday||end!==today;
+const week=all.filter(n=>day(n)>=start&&day(n)<=end).sort((a,b)=>a.date.localeCompare(b.date));
+const monthAll=all.filter(n=>day(n).slice(0,7)===monthKey);
+const month=week;
 const tl=a=>a.reduce((s,n)=>s+(n.timeLost||0),0);
 const types=n=>(n.types&&n.types.length?n.types:[n.type]).filter(Boolean).map(t=>t.startsWith('Autre:')?'Autre':t);
 const count=(a,fn)=>{const m={};a.forEach(n=>fn(n).forEach(k=>m[k]=(m[k]||0)+1));return Object.entries(m).sort((a,b)=>b[1]-a[1])};
@@ -50,7 +55,9 @@ const timeGra=Object.entries(tm).sort((a,b)=>b[1]-a[1]).map(([l,v],i)=>({l,v,c:G
 const byM={};all.forEach(n=>{const k=day(n).slice(0,7);byM[k]=byM[k]||{c:0,t:0};byM[k].c++;byM[k].t+=n.timeLost||0});
 const months=Object.entries(byM).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
 const MC=['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
-const wk=`${dm(monday)} au ${dm(today)}`;
+const dmy=x=>{const[y,m,d]=x.split('-');return`${d}/${m}/${y}`};
+const wk=custom?`${dmy(start)} au ${dmy(end)}`:`${dm(monday)} au ${dm(today)}`;
+const LABEL=custom?'période du '+wk:'semaine du '+wk;
 
 // ───────── Graphiques SVG → PNG
 const FF="font-family=\"DM Sans, DejaVu Sans, sans-serif\"";
@@ -63,8 +70,8 @@ function banner(){
   ${[60,104,152,204].map(r=>`<circle cx="1140" cy="40" r="${r}" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="2"/>`).join('')}
   <path d="M30 48V28h20M1250 192v20h-20M30 192v20h20" stroke="#fff" stroke-opacity=".4" stroke-width="2" fill="none"/>
   <text x="60" y="78" ${FF} font-size="24" font-weight="500" fill="#fff" fill-opacity=".8" letter-spacing="3">LUXVISUAL · PRODUCTION</text>
-  <text x="60" y="150" ${FF} font-size="60" font-weight="700" fill="#fff">NC Print — semaine du ${wk}</text>
-  <text x="60" y="200" ${FF} font-size="28" fill="#fff" fill-opacity=".88">${MOIS[+monthKey.slice(5)-1]} ${monthKey.slice(0,4)}</text></svg>`;
+  <text x="60" y="150" ${FF} font-size="60" font-weight="700" fill="#fff">NC Print — ${custom?wk:'semaine du '+wk}</text>
+  <text x="60" y="200" ${FF} font-size="28" fill="#fff" fill-opacity=".88">${week.length} non-conformité${week.length>1?'s':''} · ${fmtMin(tl(week))} perdues</text></svg>`;
 }
 function donut(entries,center){
   const w=640,h=Math.max(260,40+entries.length*30),total=entries.reduce((s,e)=>s+e.v,0),cx=130,cy=h/2,r=84,sw=44;
@@ -110,16 +117,16 @@ const rows=week.length?week.map(n=>`<tr><td style="${td};white-space:nowrap">${d
 const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f6f7f9;font-family:Arial,Helvetica,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f6f7f9"><tr><td align="center" style="padding:16px 8px">
 <table role="presentation" width="640" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="max-width:640px;width:100%;border:1px solid ${LINE}">
-<tr><td bgcolor="#0066cc" style="background:#0066cc;font-size:0;line-height:0"><img src="${RAW}banner.png?v=${v}" width="640" alt="NC Print — semaine du ${wk}" style="display:block;width:100%;height:auto;border:0"></td></tr>
+<tr><td bgcolor="#0066cc" style="background:#0066cc;font-size:0;line-height:0"><img src="${RAW}banner.png?v=${v}" width="640" alt="NC Print — ${LABEL}" style="display:block;width:100%;height:auto;border:0"></td></tr>
 <tr><td style="padding:24px">
-<table role="presentation" cellpadding="0" cellspacing="0"><tr>${kpi(week.length,'NC cette semaine',BLUE)}${kpi(fmtMin(tl(week)),'temps perdu',TEAL)}${kpi(week.length?Math.round(tl(week)/week.length)+' min':'—','par NC',GREEN)}</tr></table>
-${h3('Non-conformités de la semaine')}
-<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid ${LINE}"><tr><th style="${th}">Date</th><th style="${th}">Client / job</th><th style="${th}">Graphiste</th><th style="${th}">Type(s)</th><th style="${th};text-align:right">Temps</th></tr>${rows}</table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;border-top:3px solid ${TEAL}"><tr><td style="padding-top:16px;font-size:20px;font-weight:bold;color:${TEAL}">Cumul de ${MOIS[+monthKey.slice(5)-1].toLowerCase()} : ${month.length} NC · ${fmtMin(tl(month))}</td></tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>${kpi(week.length,custom?'NC sur la période':'NC cette semaine',BLUE)}${kpi(fmtMin(tl(week)),'temps perdu',TEAL)}${kpi(week.length?Math.round(tl(week)/week.length)+' min':'—','par NC',GREEN)}</tr></table>
+<p style="font-size:13px;color:${MUTE};margin:14px 0 0">Cumul de ${MOIS[+monthKey.slice(5)-1].toLowerCase()} : <b style="color:${TEAL}">${monthAll.length} NC · ${fmtMin(tl(monthAll))}</b></p>
 ${hasMonth?h3('Répartition par type de NC')+img('types','NC par type')+h3('NC par graphiste')+img('graphistes','NC par graphiste')+(timeGra.length?h3('Temps perdu par graphiste')+img('temps','Temps perdu par graphiste'):''):''}
 ${h3('Évolution sur 6 mois (nombre de NC et temps perdu)')}${img('mois','NC par mois')}
+${h3('Détail des non-conformités ('+week.length+')')}
+<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid ${LINE}"><tr><th style="${th}">Date</th><th style="${th}">Client / job</th><th style="${th}">Graphiste</th><th style="${th}">Type(s)</th><th style="${th};text-align:right">Temps</th></tr>${rows}</table>
 <p style="font-size:12px;color:${MUTE};margin:28px 0 0">Rapport généré automatiquement par NC Print. Si les graphiques ne s'affichent pas, autorisez l'affichage des images.</p>
 </td></tr></table></td></tr></table></body></html>`;
 fs.writeFileSync('report/rapport.html',html.replace(/\n/g,''));
-fs.writeFileSync('report/meta.json',JSON.stringify({generatedAt:now.toISOString(),subject:`NC Print — rapport hebdomadaire — semaine du ${wk}`,weekNC:week.length,monthNC:month.length,totalNC:all.length,text:`NC Print — semaine du ${wk} : ${week.length} NC, ${fmtMin(tl(week))} perdues. Mois en cours : ${month.length} NC, ${fmtMin(tl(month))}.`},null,2));
+fs.writeFileSync('report/meta.json',JSON.stringify({generatedAt:now.toISOString(),subject:`NC Print — rapport ${custom?'':'hebdomadaire — '}${LABEL}`,weekNC:week.length,monthNC:monthAll.length,totalNC:all.length,text:`NC Print — ${LABEL} : ${week.length} NC, ${fmtMin(tl(week))} perdues. Mois en cours : ${monthAll.length} NC, ${fmtMin(tl(monthAll))}.`},null,2));
 console.log('OK',week.length,'NC semaine,',month.length,'mois,',all.length,'total');

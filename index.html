@@ -530,10 +530,16 @@ path.sl.on{stroke-width:34}
       </div></section>
 
       <section class="fcard"><div class="fh">Envoyer le rapport hebdomadaire</div><div class="fb">
-        <p class="lead-text">Le rapport contient les NC de la semaine, les statistiques du mois et le récapitulatif mensuel. Destinataires : voir la carte ci-dessus. Après un clic, le mail part en quelques minutes (graphiques identiques à ceux du rapport du vendredi).</p>
-        <div class="rapport-preview" id="rapport-preview">Cliquez sur Aperçu pour prévisualiser le rapport avant l'envoi.</div>
+        <p class="lead-text">Le rapport contient les diagrammes de la période choisie (types, graphistes, temps perdu, évolution sur 6 mois), puis le détail des NC. Destinataires : voir la carte ci-dessus. Le rapport du vendredi couvre la semaine en cours.</p>
+        <div class="pin-fields" style="margin-bottom:14px">
+          <div class="pin-field"><label for="rp-preset">Période du rapport</label>
+            <select id="rp-preset" onchange="setRapportPreset()" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:var(--r-md);font:inherit;background:#fff">
+              <option value="week">Semaine en cours</option><option value="lastweek">Semaine dernière</option><option value="month">Mois en cours</option><option value="lastmonth">Mois dernier</option><option value="d30">30 derniers jours</option><option value="custom">Dates personnalisées</option>
+            </select></div>
+          <div class="pin-field"><label for="rp-from">Du</label><input type="date" id="rp-from" onchange="document.getElementById('rp-preset').value='custom'"></div>
+          <div class="pin-field"><label for="rp-to">Au</label><input type="date" id="rp-to" onchange="document.getElementById('rp-preset').value='custom'"></div>
+        </div>
         <div class="btn-row">
-          <button class="btn btn-ghost" onclick="previewRapport()"><span data-ic="eye" data-s="16"></span>Aperçu</button>
           <button class="btn btn-primary" onclick="sendRapport()" id="btn-send-rapport"><span data-ic="mail" data-s="18"></span><span id="send-label">Envoyer le rapport</span></button>
         </div>
         <div class="last-sent" id="rapport-last-sent"></div>
@@ -1320,12 +1326,13 @@ function addDest(){
 }
 function delDest(i){destList=destList.filter((_,j)=>j!==i);renderDest();saveDest()}
 function loadEmailConfigUI(){
+  setRapportPreset();
   DEST_REF.onSnapshot(d=>{const t=d.exists&&d.data().to;if(Array.isArray(t)&&t.length)destList=t;renderDest()},()=>renderDest());
   RAPPORT_REQ.onSnapshot(d=>{
     const el=document.getElementById('rapport-last-sent'); if(!el)return;
     const x=d.exists?d.data():null; if(!x){el.textContent='';return}
     const f=t=>t?new Date(t).toLocaleString('fr-LU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-    el.textContent=x.status==='erreur'?'Dernier envoi en erreur : '+(x.error||'inconnue'):x.status==='demande'?'Demande en attente depuis '+f(x.requestedAt)+' : le mail part dans quelques minutes.':(x.sentAt?'Dernier envoi : '+f(x.sentAt)+(x.by?' (demandé par '+x.by+')':'')+(x.error?' · non remis : '+x.error:''):'');
+    el.textContent=x.status==='erreur'?'Dernier envoi en erreur : '+(x.error||'inconnue'):x.status==='demande'?'Demande en attente depuis '+f(x.requestedAt)+(x.from?' (période '+x.from.split('-').reverse().join('/')+' au '+x.to.split('-').reverse().join('/')+')':'')+' : le mail part dans quelques minutes.':(x.sentAt?'Dernier envoi : '+f(x.sentAt)+(x.by?' (demandé par '+x.by+')':'')+(x.error?' · non remis : '+x.error:''):'');
   },()=>{});
 }
 
@@ -1513,11 +1520,26 @@ function previewRapport(){
   toast('Aperçu généré');
 }
 
+function isoD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function rapportRange(k){
+  const n=new Date(),t=new Date(n.getFullYear(),n.getMonth(),n.getDate()),dow=(t.getDay()+6)%7,mon=new Date(t);mon.setDate(t.getDate()-dow);
+  if(k==='lastweek'){const a=new Date(mon);a.setDate(mon.getDate()-7);const b=new Date(mon);b.setDate(mon.getDate()-1);return[a,b]}
+  if(k==='month')return[new Date(t.getFullYear(),t.getMonth(),1),t];
+  if(k==='lastmonth')return[new Date(t.getFullYear(),t.getMonth()-1,1),new Date(t.getFullYear(),t.getMonth(),0)];
+  if(k==='d30'){const a=new Date(t);a.setDate(t.getDate()-29);return[a,t]}
+  return[mon,t];
+}
+function setRapportPreset(){
+  const k=document.getElementById('rp-preset').value;if(k==='custom')return;
+  const[a,b]=rapportRange(k);document.getElementById('rp-from').value=isoD(a);document.getElementById('rp-to').value=isoD(b);
+}
 async function sendRapport(){
   const btn=document.getElementById('btn-send-rapport'),label=document.getElementById('send-label');
   label.textContent='Envoi de la demande…'; btn.disabled=true;
   try{
-    await RAPPORT_REQ.set({status:'demande',requestedAt:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser&&(currentUser.name||currentUser))||''},{merge:true});
+    const rf=document.getElementById('rp-from').value,rt=document.getElementById('rp-to').value;
+    if(!rf||!rt){toast('Choisir une période',true);return}
+    await RAPPORT_REQ.set({status:'demande',from:rf,to:rt,requestedAt:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser&&(currentUser.name||currentUser))||''},{merge:true});
     toast('Demande envoyée : le rapport part par e-mail dans quelques minutes');
   }catch(err){console.error(err);toast("Erreur : demande non enregistrée.",true)}
   finally{label.textContent='Envoyer le rapport';btn.disabled=false}
