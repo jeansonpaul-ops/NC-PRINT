@@ -28,7 +28,7 @@ const dm=s=>{const[y,m,d]=s.split('-');return`${d}/${m}`};
 const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const fmtMin=m=>m>=60?`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`:`${m} min`;
 const BLUE='#0066cc',TEAL='#0f8b8d',GREEN='#1e9e6a',INK='#14181f',MUTE='#5f6877',LINE='#e3e6eb';
-const TYPE_COL={'Fondperduinsuffisant':'#2563eb','Traitsdecoupeabsents/malpositionnés':'#dc2626','Contourdedécoupeabsent/nonstandard':'#ca8a04','Imagepixélisée':'#7c3aed','FichierenRVB':'#0d9488','Blancnondéfini':'#ea580c','Dimensionsincorrectes':'#db2777','Fichiercorrompu':'#4d7c0f','Mauvaisformat(JPG/PDF)':'#0891b2','Transparencesnonaplaties':'#16a34a','Amalgamme/RectoVersomalpréparé':'#a21caf','Autre':'#64748b'};
+const TYPE_COL={'Fondperduinsuffisant':'#1f6bff','Traitsdecoupeabsents/malpositionnés':'#ff1f3d','Contourdedécoupeabsent/nonstandard':'#f29a00','Imagepixélisée':'#8b2bff','FichierenRVB':'#00c2a8','Blancnondéfini':'#ff6a00','Dimensionsincorrectes':'#ff1f8e','Fichiercorrompu':'#7ec800','Mauvaisformat(JPG/PDF)':'#00b4ff','Transparencesnonaplaties':'#12d14a','Amalgamme/RectoVersomalpréparé':'#d61fff','Autre':'#6b7a99'};
 const GRA_COL={'Paul':'#10489e','Félix':'#1392c3','Manon':'#109e98','Christopher':'#109e7a','Invité (Graphiste)':'#13c35e'};
 const PAL=['#10489e','#136cc3','#1392c3','#10859e','#109e98','#109e7a','#13b7c3','#13c384'];
 

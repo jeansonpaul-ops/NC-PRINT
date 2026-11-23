@@ -126,6 +126,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 .field textarea{resize:vertical;min-height:72px}
 ::placeholder{color:var(--text3)}
 .fform{counter-reset:fc}
+#rp-preset{appearance:none;-webkit-appearance:none;min-height:44px;padding:8px 44px 8px 12px!important;border:1px solid var(--line2)!important;border-radius:var(--r-md)!important;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230f8b8d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center!important;color:var(--text);cursor:pointer}
+#dest-new,#rp-from,#rp-to{background:var(--surface);border:1px solid var(--line2);border-radius:var(--r-md);padding:8px 12px;min-height:44px;width:100%;font:inherit;color:var(--text);outline:none}
+#dest-new:focus,#rp-from:focus,#rp-to:focus{border-color:var(--accent)}
+#rp-preset:focus{outline:none;border-color:var(--accent)}
+.fcard:has(.combo.open){overflow:visible;position:relative;z-index:30}
+.fcard>.fh{border-radius:calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0}
 .fcard{counter-increment:fc;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:16px;overflow:hidden}
 .fcard>.fh{display:flex;align-items:center;gap:12px;padding:12px 16px;background:linear-gradient(90deg,var(--accent-soft),var(--teal-soft));border-bottom:1px solid var(--line);font-size:14px;font-weight:500;color:var(--teal-dark)}
 .fcard>.fh::before{content:counter(fc);flex:none;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--teal));color:#fff;font-family:var(--mono);font-size:12px;font-weight:500}
@@ -580,18 +586,18 @@ const GRAPHISTES = ['Paul','Félix','Manon','Christopher','Invité (Graphiste)']
 // Types NC production print
 // c = couleur, d = version foncée (texte), t = teinte claire (fond)
 const NC_TYPES = [
-  {label:'Fond perdu insuffisant', c:'#2563eb', d:'#092767', t:'#e3ebfc'},
-  {label:'Traits de coupe absents / mal positionnés', c:'#dc2626', d:'#611010', t:'#fbe5e5'},
-  {label:'Contour de découpe absent / non standard', c:'#ca8a04', d:'#6e4b02', t:'#fef5e1'},
-  {label:'Image pixélisée', c:'#7c3aed', d:'#2c0967', t:'#ece3fc'},
-  {label:'Fichier en RVB', c:'#0d9488', d:'#09675f', t:'#e3fdfa'},
-  {label:'Blanc non défini', c:'#ea580c', d:'#6b2805', t:'#feebe2'},
-  {label:'Dimensions incorrectes', c:'#db2777', d:'#601034', t:'#fbe5ee'},
-  {label:'Fichier corrompu', c:'#4d7c0f', d:'#3e640c', t:'#f1fce4'},
-  {label:'Mauvais format (JPG/PDF)', c:'#0891b2', d:'#05576b', t:'#e2f8fe'},
-  {label:'Transparences non aplaties', c:'#16a34a', d:'#0d632d', t:'#e4fbed'},
-  {label:'Amalgamme / Recto Verso mal préparé', c:'#a21caf', d:'#5a0f61', t:'#f9e5fb'},
-  {label:'Autre', c:'#64748b', d:'#2f3641', t:'#edeff2'},
+  {label:'Fond perdu insuffisant', c:'#1f6bff', d:'#002366', t:'#dbe7ff'},
+  {label:'Traits de coupe absents / mal positionnés', c:'#ff1f3d', d:'#66000e', t:'#ffdbe0'},
+  {label:'Contour de découpe absent / non standard', c:'#f29a00', d:'#664100', t:'#fff2db'},
+  {label:'Image pixélisée', c:'#8b2bff', d:'#2e0066', t:'#ebdbff'},
+  {label:'Fichier en RVB', c:'#00c2a8', d:'#006658', t:'#dbfffa'},
+  {label:'Blanc non défini', c:'#ff6a00', d:'#662a00', t:'#ffeadb'},
+  {label:'Dimensions incorrectes', c:'#ff1f8e', d:'#660033', t:'#ffdbed'},
+  {label:'Fichier corrompu', c:'#7ec800', d:'#406600', t:'#f2ffdb'},
+  {label:'Mauvais format (JPG/PDF)', c:'#00b4ff', d:'#004866', t:'#dbf4ff'},
+  {label:'Transparences non aplaties', c:'#12d14a', d:'#085e21', t:'#defce7'},
+  {label:'Amalgamme / Recto Verso mal préparé', c:'#d61fff', d:'#530066', t:'#f8dbff'},
+  {label:'Autre', c:'#6b7a99', d:'#08245e', t:'#eaecf0'},
 ];
 function typeColor(l){return NC_TYPES.find(t=>t.label===l)||NC_TYPES[11]}
 function typeTags(types){return types.map(l=>{const k=typeColor(l);return`<span class="tag" style="--c:${k.c};background:${k.t};color:${k.d}"><i class="dot" style="background:${k.c}"></i>${esc(l)}</span>`}).join('')}
