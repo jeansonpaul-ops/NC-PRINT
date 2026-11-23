@@ -32,6 +32,7 @@ jobs:
         name: Envoyer le mail
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_FROM: ${{ vars.REPORT_FROM }}
         run: |
           sleep 20
           if node scripts/send-report.mjs; then node scripts/request.mjs done; else node scripts/request.mjs fail; fi

@@ -34,6 +34,7 @@ jobs:
         if: github.event_name == 'schedule' || inputs.envoyer == true
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_FROM: ${{ vars.REPORT_FROM }}
           REPORT_TEST: ${{ github.event_name != 'schedule' }}
         run: |
           sleep 20
