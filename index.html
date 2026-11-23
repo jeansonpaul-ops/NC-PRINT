@@ -1318,7 +1318,7 @@ new MutationObserver(ms=>ms.forEach(r=>{const t=r.target;if(t.matches&&t.matches
 
 const RAPPORT_REQ = db.collection('nc_print_cmd').doc('rapport');
 const DEST_REF=db.collection('nc_print_cmd').doc('config');
-let destList=['pao@luxvisual.lu'];
+let destList=['pao@luxvisual.lu'],relayUrl='';
 function renderDest(){
   const el=document.getElementById('dest-list');if(!el)return;
   el.innerHTML=destList.map((m,i)=>`<span style="display:inline-flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:999px;background:var(--c-soft,#e8f1fb);font-size:14px">${m.replace(/</g,'&lt;')}${destList.length>1?`<button onclick="delDest(${i})" aria-label="Retirer ${m}" style="border:0;background:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px">×</button>`:''}</span>`).join('');
@@ -1333,7 +1333,7 @@ function addDest(){
 function delDest(i){destList=destList.filter((_,j)=>j!==i);renderDest();saveDest()}
 function loadEmailConfigUI(){
   setRapportPreset();
-  DEST_REF.onSnapshot(d=>{const t=d.exists&&d.data().to;if(Array.isArray(t)&&t.length)destList=t;renderDest()},()=>renderDest());
+  DEST_REF.onSnapshot(d=>{relayUrl=(d.exists&&d.data().relay)||'';const t=d.exists&&d.data().to;if(Array.isArray(t)&&t.length)destList=t;renderDest()},()=>renderDest());
   RAPPORT_REQ.onSnapshot(d=>{
     const el=document.getElementById('rapport-last-sent'); if(!el)return;
     const x=d.exists?d.data():null; if(!x){el.textContent='';return}
@@ -1546,7 +1546,7 @@ async function sendRapport(){
     const rf=document.getElementById('rp-from').value,rt=document.getElementById('rp-to').value;
     if(!rf||!rt){toast('Choisir une période',true);return}
     await RAPPORT_REQ.set({status:'demande',from:rf,to:rt,requestedAt:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser&&(currentUser.name||currentUser))||''},{merge:true});
-    toast('Demande envoyée : le rapport part par e-mail dans quelques minutes');
+    if(relayUrl){try{fetch(relayUrl,{method:'POST',mode:'no-cors',body:'go'});toast('Envoi lancé : le rapport arrive dans 1 à 2 minutes')}catch(e){toast('Demande enregistrée : envoi différé')}}else toast('Demande enregistrée : le rapport part par e-mail dans quelques heures au plus');
   }catch(err){console.error(err);toast("Erreur : demande non enregistrée.",true)}
   finally{label.textContent='Envoyer le rapport';btn.disabled=false}
 }
